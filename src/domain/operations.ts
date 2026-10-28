@@ -1,4 +1,4 @@
-import type { Reservation, Room } from '@/domain/models';
+import type { Reservation, ReservationStatus, Room } from '@/domain/models';
 
 const DAY = 86_400_000;
 export const nightsBetween = (checkIn: string, checkOut: string) => {
@@ -19,3 +19,12 @@ export const reservationTotal = (room: Pick<Room, 'nightlyRate'>, checkIn: strin
 };
 
 export const occupancyRate = (rooms: Room[]) => rooms.length ? Math.round((rooms.filter((room) => room.status === 'occupied').length / rooms.length) * 100) : 0;
+
+const reservationTransitions: Record<ReservationStatus, ReservationStatus[]> = {
+  confirmed: ['checked-in', 'cancelled'],
+  'checked-in': ['checked-out'],
+  'checked-out': [],
+  cancelled: [],
+};
+
+export const canTransitionReservation = (from: ReservationStatus, to: ReservationStatus) => reservationTransitions[from].includes(to);
