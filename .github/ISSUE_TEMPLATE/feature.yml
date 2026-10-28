@@ -1,0 +1,42 @@
+name: Product slice
+description: Track a complete, visible and testable ShiftX capability
+title: "[Feature]: "
+labels: ["feature"]
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: User outcome
+      description: Describe what becomes possible and for which role.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: Include in-scope behavior and explicit non-goals.
+    validations:
+      required: true
+  - type: textarea
+    id: states
+    attributes:
+      label: UX states
+      description: Loading, empty, error, success, offline and permission states.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      placeholder: "- [ ] Observable and testable result"
+    validations:
+      required: true
+  - type: checkboxes
+    id: done
+    attributes:
+      label: Definition of done
+      options:
+        - label: Accessibility and reduced motion verified
+        - label: Authorization enforced at the API boundary
+        - label: Lint, typecheck and tests pass
+        - label: Documentation updated

@@ -1,0 +1,7 @@
+import { LinearGradient } from 'expo-linear-gradient';
+import { Coffee, PackageOpen, Salad, ShoppingBasket, UtensilsCrossed } from 'lucide-react-native';
+import { StyleSheet, View } from 'react-native';
+import { colors, radii } from '@/theme/tokens';
+const icons = [UtensilsCrossed, Salad, Coffee, ShoppingBasket, PackageOpen];
+export function MarketplaceArt({ accent, index = 0, compact = false }: { accent: string; index?: number; compact?: boolean }) { const Icon = icons[index % icons.length]; return <LinearGradient colors={[accent, `${accent}B8`]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.art, compact && styles.compact]}><View style={styles.orbit} /><View style={styles.plate}><Icon size={compact ? 25 : 38} color={colors.ink} strokeWidth={1.9} /></View><View style={styles.dot} /></LinearGradient>; }
+const styles = StyleSheet.create({ art: { height: 152, borderRadius: radii.lg, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }, compact: { width: 96, height: 96, borderRadius: radii.md }, orbit: { position: 'absolute', width: 180, height: 180, borderRadius: 90, borderWidth: 32, borderColor: 'rgba(255,255,255,.28)', right: -65, top: -70 }, plate: { width: 78, height: 78, borderRadius: 39, backgroundColor: 'rgba(255,254,250,.86)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(17,16,14,.18)' }, dot: { position: 'absolute', width: 22, height: 22, borderRadius: 11, backgroundColor: colors.lime, left: 18, bottom: 18, borderWidth: 1, borderColor: colors.ink } });

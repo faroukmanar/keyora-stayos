@@ -1,0 +1,29 @@
+name: Bug report
+description: Report reproducible ShiftX behavior that differs from expectations
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      placeholder: "1. Sign in as…"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Device and build
+      placeholder: "Pixel 8, Android 16, preview build abc123"

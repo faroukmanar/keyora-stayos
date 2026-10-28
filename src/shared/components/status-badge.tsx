@@ -1,0 +1,5 @@
+import { StyleSheet, View } from 'react-native';
+import { AppText } from '@/shared/components/app-text';
+import { colors, radii, spacing } from '@/theme/tokens';
+export function StatusBadge({ label, tone = 'neutral' }: { label: string; tone?: 'neutral' | 'coral' | 'lime' | 'blue' | 'success' | 'danger' }) { const background = { neutral: colors.surfaceMuted, coral: colors.coral, lime: colors.lime, blue: colors.cobalt, success: '#DFF8EC', danger: '#FFE2DF' }[tone]; const foreground = tone === 'coral' || tone === 'blue' ? colors.white : tone === 'success' ? colors.success : tone === 'danger' ? colors.danger : colors.ink; return <View style={[styles.badge, { backgroundColor: background }]}><AppText variant="caption" style={{ color: foreground, textTransform: 'uppercase' }}>{label}</AppText></View>; }
+const styles = StyleSheet.create({ badge: { minHeight: 30, borderRadius: radii.pill, paddingHorizontal: spacing.md, alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-start' } });
