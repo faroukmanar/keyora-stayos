@@ -44,6 +44,7 @@ export type Reservation = {
   adults: number;
   status: ReservationStatus;
   channel: 'Direct' | 'Booking.com' | 'Airbnb' | 'Expedia';
+  arrivalNote?: string;
 };
 export type HousekeepingTask = {
   id: string;
