@@ -48,3 +48,4 @@ example
 /ios
 /android
 .local-pg-*/
+.local-pg-*.log
