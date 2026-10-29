@@ -12,7 +12,7 @@ if (contract.openapi !== '3.1.0') fail('OpenAPI 3.1.0 is required');
 if (contract.info?.version !== '1.0.0') fail('the checked-in v1 contract must declare version 1.0.0');
 if (!contract.components?.securitySchemes?.session) fail('a session security scheme is required');
 if (!contract.components?.schemas?.ApiError) fail('the safe API error envelope is missing');
-if (!generated.includes("Source: packages/contracts/openapi/v1.json")) fail('generated transport types are not traceable to the source');
+if (!generated.includes('AUTO-GENERATED from packages/contracts/openapi/v1.json')) fail('generated transport types are not traceable to the source');
 
 const operationIds = new Set();
 for (const [route, pathItem] of Object.entries(contract.paths ?? {})) {
