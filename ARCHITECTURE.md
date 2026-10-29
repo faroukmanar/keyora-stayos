@@ -45,6 +45,8 @@ Zustand holds the local operational projection: rooms, reservations, and houseke
 5. Subscribe to reservation and room-turn events through WebSocket or SSE, invalidating scoped query keys.
 6. Add Sentry/OpenTelemetry, privacy-safe analytics, remote configuration, and EAS release channels.
 
+The versioned client-independent contract and its ownership rules are documented in [docs/architecture/contracts.md](./docs/architecture/contracts.md). The OpenAPI source lives at `packages/contracts/openapi/v1.json`; shared runtime schemas and generated transport types live beside it under `packages/contracts/src`.
+
 ## Reliability rules
 
 - Checkout boundaries are exclusive, preventing false overlap for same-day turns.
