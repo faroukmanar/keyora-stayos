@@ -51,5 +51,6 @@ describe('strict environment profiles', () => {
     assert.throws(() => loadConfig({ KEYORA_PROFILE: 'production', DATABASE_TLS: 'false', DATABASE_URL: 'postgresql://db.example/keyora', CORS_ORIGINS: 'https://app.example' }), /DATABASE_TLS/);
     assert.throws(() => loadConfig({ KEYORA_PROFILE: 'production', DATABASE_TLS: 'true', DATABASE_URL: 'postgresql://localhost/keyora', CORS_ORIGINS: 'https://app.example' }), /local/);
     assert.throws(() => loadConfig({ KEYORA_PROFILE: 'production', DATABASE_TLS: 'true', DATABASE_URL: 'postgresql://db.example/keyora', CORS_ORIGINS: 'http://app.example' }), /HTTPS/);
+    assert.throws(() => loadConfig({ KEYORA_PROFILE: 'staging', DATABASE_MODE: 'required', DATABASE_TLS: 'true', DATABASE_URL: 'postgresql://keyora_owner@db.example/keyora', CORS_ORIGINS: 'https://app.example', ACCESS_TOKEN_SECRET: 'a-secure-staging-secret-that-is-long-enough', MFA_ENCRYPTION_KEY_BASE64: Buffer.alloc(32).toString('base64') }), /non-owner/);
   });
 });

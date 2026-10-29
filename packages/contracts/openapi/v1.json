@@ -25,6 +25,41 @@
         }
       }
     },
+    "/v1/auth/login": {
+      "post": {
+        "operationId": "login",
+        "security": [],
+        "x-idempotency-exempt": true,
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LoginRequest" } } } },
+        "responses": { "200": { "description": "Authenticated; web tokens are set only as HttpOnly cookies", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthResponse" } } } }, "401": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/auth/refresh": {
+      "post": {
+        "operationId": "refreshSession",
+        "security": [],
+        "x-idempotency-exempt": true,
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RefreshRequest" } } } },
+        "responses": { "200": { "description": "Rotated session", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthResponse" } } } }, "401": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/auth/logout": {
+      "post": { "operationId": "logout", "x-idempotency-exempt": true, "responses": { "204": { "description": "Session revoked and cookies cleared" } } }
+    },
+    "/v1/auth/password-reset/request": {
+      "post": {
+        "operationId": "requestPasswordReset", "security": [], "x-idempotency-exempt": true,
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PasswordResetRequest" } } } },
+        "responses": { "202": { "description": "Always accepted to prevent account enumeration" } }
+      }
+    },
+    "/v1/auth/password-reset/confirm": {
+      "post": {
+        "operationId": "confirmPasswordReset", "security": [], "x-idempotency-exempt": true,
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PasswordResetConfirm" } } } },
+        "responses": { "204": { "description": "Password replaced and every session revoked" }, "401": { "$ref": "#/components/responses/Error" } }
+      }
+    },
     "/v1/properties/{propertyId}/rooms": {
       "parameters": [{ "$ref": "#/components/parameters/PropertyId" }],
       "get": {
@@ -83,6 +118,12 @@
       "RoomPage": { "type": "object", "additionalProperties": false, "required": ["data", "nextCursor"], "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/Room" } }, "nextCursor": { "type": ["string", "null"] } } },
       "ReservationPage": { "type": "object", "additionalProperties": false, "required": ["data", "nextCursor"], "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/Reservation" } }, "nextCursor": { "type": ["string", "null"] } } },
       "ApiError": { "type": "object", "additionalProperties": false, "required": ["error"], "properties": { "error": { "type": "object", "additionalProperties": false, "required": ["code", "message", "requestId"], "properties": { "code": { "type": "string", "pattern": "^[A-Z0-9_]+$" }, "message": { "type": "string", "minLength": 1, "maxLength": 500 }, "requestId": { "type": "string", "format": "uuid" }, "details": { "type": "object", "additionalProperties": true } } } } }
+      ,"AuthUser": { "type": "object", "additionalProperties": false, "required": ["id", "organizationId", "propertyId", "displayName", "role", "sessionId"], "properties": { "id": { "type": "string", "format": "uuid" }, "organizationId": { "type": "string", "format": "uuid" }, "propertyId": { "type": "string", "format": "uuid" }, "displayName": { "type": "string" }, "role": { "enum": ["owner", "manager", "front-desk", "housekeeping"] }, "sessionId": { "type": "string", "format": "uuid" } } }
+      ,"LoginRequest": { "type": "object", "additionalProperties": false, "required": ["email", "password", "propertyId", "clientType", "deviceName"], "properties": { "email": { "type": "string", "format": "email", "maxLength": 254 }, "password": { "type": "string", "minLength": 1, "maxLength": 128 }, "propertyId": { "type": "string", "format": "uuid" }, "clientType": { "enum": ["native", "web"] }, "deviceName": { "type": "string", "minLength": 1, "maxLength": 160 }, "mfaCode": { "type": "string", "pattern": "^\\d{6}$" } } }
+      ,"RefreshRequest": { "type": "object", "additionalProperties": false, "required": ["clientType"], "properties": { "clientType": { "enum": ["native", "web"] }, "refreshToken": { "type": "string", "minLength": 32, "maxLength": 512 } } }
+      ,"AuthResponse": { "type": "object", "additionalProperties": false, "required": ["user", "accessExpiresInSeconds"], "properties": { "user": { "$ref": "#/components/schemas/AuthUser" }, "accessExpiresInSeconds": { "type": "integer", "const": 300 }, "accessToken": { "type": "string" }, "refreshToken": { "type": "string" }, "refreshExpiresAt": { "type": "string", "format": "date-time" } } }
+      ,"PasswordResetRequest": { "type": "object", "additionalProperties": false, "required": ["email", "propertyId"], "properties": { "email": { "type": "string", "format": "email" }, "propertyId": { "type": "string", "format": "uuid" } } }
+      ,"PasswordResetConfirm": { "type": "object", "additionalProperties": false, "required": ["token", "newPassword"], "properties": { "token": { "type": "string", "minLength": 32, "maxLength": 512 }, "newPassword": { "type": "string", "minLength": 12, "maxLength": 128 } } }
     }
   }
 }

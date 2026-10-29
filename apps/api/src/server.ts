@@ -1,9 +1,19 @@
 import { buildApp } from './app';
+import pg from 'pg';
 import { loadConfig } from './config';
+import { AuthService } from './auth/auth-service';
+import { PgAuthRepository } from './auth/pg-auth-repository';
+import { createPasswordResetDelivery } from './auth/password-reset-delivery';
 
 async function main() {
   const config = loadConfig();
-  const app = await buildApp(config);
+  const pool = config.databaseMode === 'required' ? new pg.Pool({ connectionString: config.databaseUrl, ssl: config.databaseTls ? { rejectUnauthorized: true } : undefined, max: 20, idleTimeoutMillis: 30_000, connectionTimeoutMillis: 5_000 }) : null;
+  const auth = pool ? await AuthService.create({ repository: new PgAuthRepository(pool), accessTokenSecret: config.accessTokenSecret, mfaKey: config.mfaEncryptionKey, deliverPasswordReset: createPasswordResetDelivery(config) }) : undefined;
+  const app = await buildApp(config, {
+    auth,
+    ready: pool ? async () => { const client = await pool.connect(); try { await client.query('SELECT 1'); } finally { client.release(); } } : undefined,
+    close: pool ? async () => { await pool.end(); } : undefined,
+  });
   let closing = false;
   const shutdown = async (signal: string) => {
     if (closing) return;

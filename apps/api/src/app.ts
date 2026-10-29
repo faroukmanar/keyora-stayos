@@ -4,10 +4,12 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import { ZodError } from 'zod';
 import { API_VERSION, apiErrorSchema } from '../../../packages/contracts/src';
+import { registerAuthRoutes } from './auth/routes';
+import type { AuthService } from './auth/auth-service';
 import type { ApiConfig } from './config';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-export type AppDependencies = { ready?: () => Promise<void> };
+export type AppDependencies = { ready?: () => Promise<void>; auth?: AuthService; close?: () => Promise<void> };
 
 function statusFor(error: unknown) {
   if (error instanceof ZodError) return 422;
@@ -36,6 +38,8 @@ export async function buildApp(config: ApiConfig, dependencies: AppDependencies 
       else callback(new Error('Origin is not allowed'), false);
     },
   });
+  if (dependencies.auth) await registerAuthRoutes(app, dependencies.auth, config);
+  if (dependencies.close) app.addHook('onClose', dependencies.close);
 
   app.addHook('onSend', async (request, reply) => {
     reply.header('x-request-id', request.id);
@@ -55,7 +59,8 @@ export async function buildApp(config: ApiConfig, dependencies: AppDependencies 
     const status = statusFor(error);
     if (status >= 500) request.log.error({ err: error, requestId: request.id }, 'Unhandled request error');
     const message = status >= 500 ? 'An unexpected error occurred.' : status === 422 ? 'The request failed validation.' : error instanceof Error ? error.message : 'The request could not be processed.';
-    return reply.status(status).send(apiErrorSchema.parse({ error: { code: status >= 500 ? 'INTERNAL_ERROR' : status === 422 ? 'VALIDATION_ERROR' : 'REQUEST_ERROR', message, requestId: request.id } }));
+    const suppliedCode = error && typeof error === 'object' && 'code' in error && typeof error.code === 'string' && /^[A-Z0-9_]+$/.test(error.code) ? error.code : null;
+    return reply.status(status).send(apiErrorSchema.parse({ error: { code: status >= 500 ? 'INTERNAL_ERROR' : status === 422 ? 'VALIDATION_ERROR' : suppliedCode ?? 'REQUEST_ERROR', message, requestId: request.id } }));
   });
   return app;
 }

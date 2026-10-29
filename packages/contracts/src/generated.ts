@@ -10,6 +10,11 @@ export interface paths {
   '/v1/ready': {
     get: { responses: { 200: { content: { 'application/json': components['schemas']['ReadinessResponse'] } }; 503: { content: { 'application/json': components['schemas']['ReadinessResponse'] } } } };
   };
+  '/v1/auth/login': { post: { requestBody: { content: { 'application/json': components['schemas']['LoginRequest'] } }; responses: { 200: { content: { 'application/json': components['schemas']['AuthResponse'] } } } } };
+  '/v1/auth/refresh': { post: { requestBody: { content: { 'application/json': components['schemas']['RefreshRequest'] } }; responses: { 200: { content: { 'application/json': components['schemas']['AuthResponse'] } } } } };
+  '/v1/auth/logout': { post: { responses: { 204: never } } };
+  '/v1/auth/password-reset/request': { post: { requestBody: { content: { 'application/json': components['schemas']['PasswordResetRequest'] } }; responses: { 202: { content: { 'application/json': { accepted: boolean } } } } } };
+  '/v1/auth/password-reset/confirm': { post: { requestBody: { content: { 'application/json': components['schemas']['PasswordResetConfirm'] } }; responses: { 204: never } } };
   '/v1/properties/{propertyId}/rooms': {
     get: { responses: { 200: { content: { 'application/json': components['schemas']['RoomPage'] } } } };
   };
@@ -31,5 +36,11 @@ export interface components {
     RoomPage: { data: components['schemas']['Room'][]; nextCursor: string | null };
     ReservationPage: { data: components['schemas']['Reservation'][]; nextCursor: string | null };
     ApiError: { error: { code: string; message: string; requestId: string; details?: Record<string, unknown> } };
+    AuthUser: { id: string; organizationId: string; propertyId: string; displayName: string; role: 'owner' | 'manager' | 'front-desk' | 'housekeeping'; sessionId: string };
+    LoginRequest: { email: string; password: string; propertyId: string; clientType: 'native' | 'web'; deviceName: string; mfaCode?: string };
+    RefreshRequest: { clientType: 'native' | 'web'; refreshToken?: string };
+    AuthResponse: { user: components['schemas']['AuthUser']; accessExpiresInSeconds: number; accessToken?: string; refreshToken?: string; refreshExpiresAt?: string };
+    PasswordResetRequest: { email: string; propertyId: string };
+    PasswordResetConfirm: { token: string; newPassword: string };
   };
 }

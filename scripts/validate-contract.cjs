@@ -22,7 +22,7 @@ for (const [route, pathItem] of Object.entries(contract.paths ?? {})) {
     if (!operation.operationId) fail(`${method.toUpperCase()} ${route} lacks operationId`);
     if (operationIds.has(operation.operationId)) fail(`duplicate operationId ${operation.operationId}`);
     operationIds.add(operation.operationId);
-    if (method !== 'get' && route !== '/v1/health') {
+    if (method !== 'get' && !operation['x-idempotency-exempt']) {
       const idempotency = operation.parameters?.some((value) => value.$ref === '#/components/parameters/IdempotencyKey');
       if (!idempotency) fail(`${method.toUpperCase()} ${route} must require Idempotency-Key`);
     }
