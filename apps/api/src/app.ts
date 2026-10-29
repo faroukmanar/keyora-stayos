@@ -3,7 +3,8 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import type Redis from 'ioredis';
 import Fastify, { type FastifyInstance } from 'fastify';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
+import type { Pool } from 'pg';
 import { ZodError } from 'zod';
 import { API_VERSION, apiErrorSchema } from '../../../packages/contracts/src';
 import { registerAuthRoutes } from './auth/routes';
@@ -12,11 +13,12 @@ import { registerNotificationRoutes } from './notifications/routes';
 import type { NotificationService } from './notifications/notification-service';
 import type{MetricsService}from'./observability/metrics';
 import{traceContext,sanitizeTelemetryMessage,type BufferedExporter,type SpanRecord,type ErrorRecord}from'./observability/telemetry';
-import{timingSafeEqual}from'node:crypto';
 import type { ApiConfig } from './config';
+import { registerInventoryRoutes } from './domain/inventory-routes';
+import { InventoryService } from './domain/inventory-service';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-export type AppDependencies = { ready?: () => Promise<void>; auth?: AuthService; notifications?: NotificationService; metrics?:MetricsService; traceExporter?:BufferedExporter; errorExporter?:BufferedExporter; rateLimitRedis?: Redis; close?: () => Promise<void> };
+export type AppDependencies = { ready?: () => Promise<void>; auth?: AuthService; notifications?: NotificationService; metrics?:MetricsService; traceExporter?:BufferedExporter; errorExporter?:BufferedExporter; rateLimitRedis?: Redis; close?: () => Promise<void>; pool?: Pool };
 
 function statusFor(error: unknown) {
   if (error instanceof ZodError) return 422;
@@ -67,6 +69,10 @@ export async function buildApp(config: ApiConfig, dependencies: AppDependencies 
   });
   if (dependencies.auth) await registerAuthRoutes(app, dependencies.auth, config);
   if (dependencies.auth && dependencies.notifications) await registerNotificationRoutes(app, dependencies.notifications, dependencies.auth);
+  if (dependencies.auth && dependencies.pool) {
+    const mediaSecret = createHash('sha256').update(`${config.accessTokenSecret}:media-signing`).digest();
+    await registerInventoryRoutes(app, { pool: dependencies.pool, auth: dependencies.auth, service: new InventoryService(mediaSecret) });
+  }
   if (dependencies.close) app.addHook('onClose', dependencies.close);
   const observations=new WeakMap<object,{start:bigint;traceId:string;spanId:string;parentSpanId?:string}>();
   app.addHook('onRequest',async(request,reply)=>{const context=traceContext(typeof request.headers.traceparent==='string'?request.headers.traceparent:undefined);observations.set(request,{start:process.hrtime.bigint(),...context});reply.header('traceparent',`00-${context.traceId}-${context.spanId}-01`);});
@@ -93,7 +99,7 @@ export async function buildApp(config: ApiConfig, dependencies: AppDependencies 
     const message = status >= 500 ? 'An unexpected error occurred.' : status === 429 ? 'Too many requests. Try again later.' : status === 422 ? 'The request failed validation.' : error instanceof Error ? error.message : 'The request could not be processed.';
     const suppliedCode = error && typeof error === 'object' && 'code' in error && typeof error.code === 'string' && /^[A-Z0-9_]+$/.test(error.code) ? error.code : null;
     const route=request.routeOptions.url??'unmatched';dependencies.metrics?.error(route,suppliedCode??(status>=500?'INTERNAL_ERROR':'REQUEST_ERROR'));if(status>=500){const observation=observations.get(request);dependencies.errorExporter?.record({traceId:observation?.traceId??'0'.repeat(32),requestId:request.id,route,type:error instanceof Error?error.name:'Error',code:suppliedCode??'INTERNAL_ERROR',message:sanitizeTelemetryMessage(error instanceof Error?error.message:'unexpected'),environment:config.profile,version:config.serviceVersion,timestamp:new Date().toISOString()} satisfies ErrorRecord);}
-    return reply.status(status).send(apiErrorSchema.parse({ error: { code: status >= 500 ? 'INTERNAL_ERROR' : status === 429 ? 'RATE_LIMITED' : status === 422 ? 'VALIDATION_ERROR' : suppliedCode ?? 'REQUEST_ERROR', message, requestId: request.id } }));
+    return reply.status(status).send(apiErrorSchema.parse({ error: { code: suppliedCode ?? (status >= 500 ? 'INTERNAL_ERROR' : status === 429 ? 'RATE_LIMITED' : status === 422 ? 'VALIDATION_ERROR' : 'REQUEST_ERROR'), message, requestId: request.id } }));
   });
   return app;
 }

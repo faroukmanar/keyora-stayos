@@ -10,6 +10,7 @@ type OperationsState = {
   createReservation: (reservation: Reservation) => void;
   transitionReservation: (id: string, status: ReservationStatus) => void;
   setRoomStatus: (id: string, status: RoomStatus) => void;
+  reorderRooms: (orderedIds: string[]) => void;
   setTaskStatus: (id: string, status: TaskStatus) => void;
 };
 
@@ -33,5 +34,6 @@ export const useOperationsStore = create<OperationsState>((set) => ({
     };
   }),
   setRoomStatus: (id, status) => set((state) => ({ rooms: state.rooms.map((room) => room.id === id ? { ...room, status } : room) })),
+  reorderRooms: (orderedIds) => set((state) => ({ rooms: orderedIds.map((id) => state.rooms.find((room) => room.id === id)).filter((room): room is Room => Boolean(room)) })),
   setTaskStatus: (id, status) => set((state) => ({ tasks: state.tasks.map((task) => task.id === id ? { ...task, status } : task) })),
 }));
