@@ -19,6 +19,13 @@ const configSchema = z.object({
   NOTIFICATION_PROVIDER_TOKEN: z.string().min(20).optional(),
   NOTIFICATION_WEBHOOK_SECRET: z.string().min(32).optional(),
   NOTIFICATION_ENCRYPTION_KEY_BASE64: z.string().optional(),
+  OBSERVABILITY_MODE: z.enum(['disabled','local','export']).default('disabled'),
+  METRICS_TOKEN: z.string().min(32).default('local-only-metrics-token-32-characters'),
+  TRACE_EXPORT_URL: z.string().url().optional(),
+  TRACE_EXPORT_TOKEN: z.string().min(20).optional(),
+  ERROR_REPORT_URL: z.string().url().optional(),
+  ERROR_REPORT_TOKEN: z.string().min(20).optional(),
+  SERVICE_VERSION: z.string().regex(/^[a-zA-Z0-9._-]{1,80}$/).default('local'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   TRUST_PROXY: booleanString.default(false),
 }).strict();
@@ -41,6 +48,13 @@ export type ApiConfig = {
   notificationProviderToken?: string;
   notificationWebhookSecret?: string;
   notificationEncryptionKey: Buffer;
+  observabilityMode: 'disabled'|'local'|'export';
+  metricsToken: string;
+  traceExportUrl?: string;
+  traceExportToken?: string;
+  errorReportUrl?: string;
+  errorReportToken?: string;
+  serviceVersion: string;
   logLevel: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'silent';
   trustProxy: boolean;
 };
@@ -70,8 +84,11 @@ export function loadConfig(environment: Record<string, string | undefined> = pro
     if (value.EMAIL_PROVIDER_TOKEN.startsWith('replace-')) throw new Error('Production EMAIL_PROVIDER_TOKEN must come from the secret manager');
     if (value.NOTIFICATION_MODE !== 'http' || !value.NOTIFICATION_PROVIDER_URL || !value.NOTIFICATION_PROVIDER_TOKEN || !value.NOTIFICATION_WEBHOOK_SECRET || !value.NOTIFICATION_ENCRYPTION_KEY_BASE64) throw new Error('Production notifications require HTTP provider URL/token, webhook secret, and encryption key');
     if (!value.NOTIFICATION_PROVIDER_URL.startsWith('https://')) throw new Error('Production notification provider must use HTTPS');
+    if(value.OBSERVABILITY_MODE!=='export'||!value.TRACE_EXPORT_URL||!value.TRACE_EXPORT_TOKEN||!value.ERROR_REPORT_URL||!value.ERROR_REPORT_TOKEN)throw new Error('Production observability requires trace and error export endpoints/tokens');
+    if(!value.TRACE_EXPORT_URL.startsWith('https://')||!value.ERROR_REPORT_URL.startsWith('https://'))throw new Error('Production observability endpoints must use HTTPS');
+    if(/local-only|replace-with/i.test(value.METRICS_TOKEN))throw new Error('Production METRICS_TOKEN must come from the secret manager');
   }
   const notificationEncryptionKey = value.NOTIFICATION_ENCRYPTION_KEY_BASE64 && !value.NOTIFICATION_ENCRYPTION_KEY_BASE64.startsWith('replace-with') ? Buffer.from(value.NOTIFICATION_ENCRYPTION_KEY_BASE64, 'base64') : Buffer.from(value.ACCESS_TOKEN_SECRET.padEnd(32, '1').slice(0, 32));
   if (notificationEncryptionKey.length !== 32) throw new Error('NOTIFICATION_ENCRYPTION_KEY_BASE64 must decode to exactly 32 bytes');
-  return { profile: value.KEYORA_PROFILE, host: value.API_HOST, port: value.API_PORT, corsOrigins, databaseUrl: value.DATABASE_URL, databaseTls: value.DATABASE_TLS, databaseMode: value.DATABASE_MODE, accessTokenSecret: value.ACCESS_TOKEN_SECRET, mfaEncryptionKey, emailProviderUrl: value.EMAIL_PROVIDER_URL, emailProviderToken: value.EMAIL_PROVIDER_TOKEN, passwordResetWebUrl: value.PASSWORD_RESET_WEB_URL, notificationMode: value.NOTIFICATION_MODE, notificationProviderUrl: value.NOTIFICATION_PROVIDER_URL, notificationProviderToken: value.NOTIFICATION_PROVIDER_TOKEN, notificationWebhookSecret: value.NOTIFICATION_WEBHOOK_SECRET, notificationEncryptionKey, logLevel: value.LOG_LEVEL, trustProxy: value.TRUST_PROXY };
+  return { profile: value.KEYORA_PROFILE, host: value.API_HOST, port: value.API_PORT, corsOrigins, databaseUrl: value.DATABASE_URL, databaseTls: value.DATABASE_TLS, databaseMode: value.DATABASE_MODE, accessTokenSecret: value.ACCESS_TOKEN_SECRET, mfaEncryptionKey, emailProviderUrl: value.EMAIL_PROVIDER_URL, emailProviderToken: value.EMAIL_PROVIDER_TOKEN, passwordResetWebUrl: value.PASSWORD_RESET_WEB_URL, notificationMode: value.NOTIFICATION_MODE, notificationProviderUrl: value.NOTIFICATION_PROVIDER_URL, notificationProviderToken: value.NOTIFICATION_PROVIDER_TOKEN, notificationWebhookSecret: value.NOTIFICATION_WEBHOOK_SECRET, notificationEncryptionKey, observabilityMode:value.OBSERVABILITY_MODE,metricsToken:value.METRICS_TOKEN,traceExportUrl:value.TRACE_EXPORT_URL,traceExportToken:value.TRACE_EXPORT_TOKEN,errorReportUrl:value.ERROR_REPORT_URL,errorReportToken:value.ERROR_REPORT_TOKEN,serviceVersion:value.SERVICE_VERSION, logLevel: value.LOG_LEVEL, trustProxy: value.TRUST_PROXY };
 }

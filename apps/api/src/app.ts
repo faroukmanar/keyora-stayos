@@ -8,10 +8,13 @@ import { registerAuthRoutes } from './auth/routes';
 import type { AuthService } from './auth/auth-service';
 import { registerNotificationRoutes } from './notifications/routes';
 import type { NotificationService } from './notifications/notification-service';
+import type{MetricsService}from'./observability/metrics';
+import{traceContext,sanitizeTelemetryMessage,type BufferedExporter,type SpanRecord,type ErrorRecord}from'./observability/telemetry';
+import{timingSafeEqual}from'node:crypto';
 import type { ApiConfig } from './config';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-export type AppDependencies = { ready?: () => Promise<void>; auth?: AuthService; notifications?: NotificationService; close?: () => Promise<void> };
+export type AppDependencies = { ready?: () => Promise<void>; auth?: AuthService; notifications?: NotificationService; metrics?:MetricsService; traceExporter?:BufferedExporter; errorExporter?:BufferedExporter; close?: () => Promise<void> };
 
 function statusFor(error: unknown) {
   if (error instanceof ZodError) return 422;
@@ -28,7 +31,7 @@ export async function buildApp(config: ApiConfig, dependencies: AppDependencies 
       const supplied = request.headers['x-request-id'];
       return typeof supplied === 'string' && UUID.test(supplied) ? supplied : randomUUID();
     },
-    logger: config.profile === 'test' ? false : { level: config.logLevel, redact: { paths: ['req.headers.authorization', 'req.headers.cookie', 'req.body.password', 'req.body.token', 'req.body.refreshToken'], censor: '[REDACTED]' } },
+    logger: config.profile === 'test' ? false : { level: config.logLevel,base:{service:'keyora-api',environment:config.profile,version:config.serviceVersion}, redact: { paths: ['req.headers.authorization','req.headers.cookie','req.headers.set-cookie','req.body','res.headers.set-cookie','password','token','refreshToken','secret'], censor: '[REDACTED]' },serializers:{req(request){return{method:request.method,url:String(request.url).split('?')[0],id:request.id};},res(reply){return{statusCode:reply.statusCode};}} },
   });
 
   await app.register(helmet, { contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: 'same-site' } });
@@ -43,6 +46,10 @@ export async function buildApp(config: ApiConfig, dependencies: AppDependencies 
   if (dependencies.auth) await registerAuthRoutes(app, dependencies.auth, config);
   if (dependencies.auth && dependencies.notifications) await registerNotificationRoutes(app, dependencies.notifications, dependencies.auth);
   if (dependencies.close) app.addHook('onClose', dependencies.close);
+  const observations=new WeakMap<object,{start:bigint;traceId:string;spanId:string;parentSpanId?:string}>();
+  app.addHook('onRequest',async(request,reply)=>{const context=traceContext(typeof request.headers.traceparent==='string'?request.headers.traceparent:undefined);observations.set(request,{start:process.hrtime.bigint(),...context});reply.header('traceparent',`00-${context.traceId}-${context.spanId}-01`);});
+  app.addHook('onResponse',async(request,reply)=>{const observation=observations.get(request);if(!observation)return;const durationMs=Number(process.hrtime.bigint()-observation.start)/1e6;const route=request.routeOptions.url??'unmatched';dependencies.metrics?.observeRequest(request.method,route,reply.statusCode,durationMs/1000);dependencies.traceExporter?.record({traceId:observation.traceId,spanId:observation.spanId,parentSpanId:observation.parentSpanId,name:`${request.method} ${route}`,method:request.method,status:reply.statusCode,durationMs,requestId:request.id,environment:config.profile,version:config.serviceVersion,timestamp:new Date().toISOString()} satisfies SpanRecord);});
+  if(dependencies.metrics)app.get('/internal/metrics',async(request,reply)=>{const presented=request.headers.authorization?.replace(/^Bearer\s+/i,'')??'';const expected=Buffer.from(config.metricsToken);const actual=Buffer.from(presented);if(actual.length!==expected.length||!timingSafeEqual(actual,expected))return reply.status(401).send({error:{code:'UNAUTHORIZED',message:'Authentication required.',requestId:request.id}});reply.header('content-type',dependencies.metrics!.contentType());return reply.send(await dependencies.metrics!.render());});
 
   app.addHook('onSend', async (request, reply) => {
     reply.header('x-request-id', request.id);
@@ -63,6 +70,7 @@ export async function buildApp(config: ApiConfig, dependencies: AppDependencies 
     if (status >= 500) request.log.error({ err: error, requestId: request.id }, 'Unhandled request error');
     const message = status >= 500 ? 'An unexpected error occurred.' : status === 422 ? 'The request failed validation.' : error instanceof Error ? error.message : 'The request could not be processed.';
     const suppliedCode = error && typeof error === 'object' && 'code' in error && typeof error.code === 'string' && /^[A-Z0-9_]+$/.test(error.code) ? error.code : null;
+    const route=request.routeOptions.url??'unmatched';dependencies.metrics?.error(route,suppliedCode??(status>=500?'INTERNAL_ERROR':'REQUEST_ERROR'));if(status>=500){const observation=observations.get(request);dependencies.errorExporter?.record({traceId:observation?.traceId??'0'.repeat(32),requestId:request.id,route,type:error instanceof Error?error.name:'Error',code:suppliedCode??'INTERNAL_ERROR',message:sanitizeTelemetryMessage(error instanceof Error?error.message:'unexpected'),environment:config.profile,version:config.serviceVersion,timestamp:new Date().toISOString()} satisfies ErrorRecord);}
     return reply.status(status).send(apiErrorSchema.parse({ error: { code: status >= 500 ? 'INTERNAL_ERROR' : status === 422 ? 'VALIDATION_ERROR' : suppliedCode ?? 'REQUEST_ERROR', message, requestId: request.id } }));
   });
   return app;

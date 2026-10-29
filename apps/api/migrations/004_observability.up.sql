@@ -1,0 +1,2 @@
+ALTER TABLE audit_events ADD COLUMN category text NOT NULL DEFAULT 'operations' CHECK(category IN('authentication','permission','reservation','room','payment','export','operations')),ADD COLUMN outcome text NOT NULL DEFAULT 'succeeded' CHECK(outcome IN('succeeded','denied','failed')),ADD COLUMN trace_id char(32) CHECK(trace_id IS NULL OR trace_id~'^[a-f0-9]{32}$');
+CREATE INDEX audit_category_time_idx ON audit_events(organization_id,property_id,category,occurred_at DESC);

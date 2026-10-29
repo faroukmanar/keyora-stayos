@@ -1,0 +1,20 @@
+[sources.telemetry]
+type = "http_server"
+address = "0.0.0.0:8686"
+encoding = "json"
+
+[transforms.records]
+type = "remap"
+inputs = ["telemetry"]
+source = '''
+.service = "keyora-api"
+.kind = if exists(.records[0].durationMs) { "trace" } else { "error" }
+'''
+
+[sinks.loki]
+type = "loki"
+inputs = ["records"]
+endpoint = "http://loki:3100"
+encoding.codec = "json"
+labels.service = "{{ service }}"
+labels.kind = "{{ kind }}"

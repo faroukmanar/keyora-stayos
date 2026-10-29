@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { decryptMfaSecret, encryptMfaSecret, createMfaSecret, verifyTotp } from './mfa';
 import { TokenService, type AccessClaims } from './tokens';
 import type { Actor, AuthRepository, AuthUser } from './types';
+import type { AuditService } from '../observability/audit';
 
 const unauthorized = () => Object.assign(new Error('Email, password, property, or verification code is invalid.'), { statusCode: 401, code: 'INVALID_CREDENTIALS' });
 const invalidSession = () => Object.assign(new Error('The session is invalid or expired.'), { statusCode: 401, code: 'INVALID_SESSION' });
@@ -17,11 +18,12 @@ export class AuthService {
     private readonly dummyPasswordHash: string,
     private readonly mfaKey: Buffer,
     private readonly deliverPasswordReset: (message: { email: string; token: string; expiresAt: Date }) => Promise<void>,
+    private readonly audit?: AuditService,
   ) {}
 
-  static async create(options: { repository: AuthRepository; accessTokenSecret: string; mfaKey: Buffer; deliverPasswordReset?: (message: { email: string; token: string; expiresAt: Date }) => Promise<void> }) {
+  static async create(options: { repository: AuthRepository; accessTokenSecret: string; mfaKey: Buffer; deliverPasswordReset?: (message: { email: string; token: string; expiresAt: Date }) => Promise<void>; audit?:AuditService }) {
     const dummyPasswordHash = await hash('invalid-user-password-never-used', { memoryCost: 65536, timeCost: 3, parallelism: 1, outputLen: 32 });
-    return new AuthService(options.repository, new TokenService(options.accessTokenSecret), dummyPasswordHash, options.mfaKey, options.deliverPasswordReset ?? (async () => {}));
+    return new AuthService(options.repository, new TokenService(options.accessTokenSecret), dummyPasswordHash, options.mfaKey, options.deliverPasswordReset ?? (async () => {}),options.audit);
   }
 
   private async issue(user: AuthUser, clientType: 'native' | 'web', deviceName: string, ip?: string, userAgent?: string): Promise<AuthResult> {
@@ -37,6 +39,7 @@ export class AuthService {
     const validPassword = await verify(user?.passwordHash ?? this.dummyPasswordHash, input.password).catch(() => false);
     if (!user || user.status !== 'active' || (user.lockedUntil && user.lockedUntil > new Date()) || !validPassword) {
       if (user && (!user.lockedUntil || user.lockedUntil <= new Date())) await this.repository.recordLoginFailure(user);
+      if(user)void this.audit?.record({organizationId:user.organizationId,propertyId:user.propertyId,actorUserId:user.id,category:'authentication',action:'authentication.login_failed',outcome:'denied',entityType:'session',requestId:randomUUID(),metadata:{reason:'invalid_credentials'}}).catch(()=>{});
       throw unauthorized();
     }
     if (user.mfaEnabled) {
@@ -46,7 +49,8 @@ export class AuthService {
       }
     }
     await this.repository.recordLoginSuccess(user);
-    return this.issue(user, input.clientType, input.deviceName, input.ip, input.userAgent);
+    const result=await this.issue(user, input.clientType, input.deviceName, input.ip, input.userAgent);
+    void this.audit?.record({organizationId:user.organizationId,propertyId:user.propertyId,actorUserId:user.id,category:'authentication',action:'authentication.login_succeeded',outcome:'succeeded',entityType:'session',entityId:result.actor.sessionId,requestId:randomUUID(),metadata:{clientType:input.clientType}}).catch(()=>{});return result;
   }
 
   async refresh(refreshToken: string, ip?: string, userAgent?: string): Promise<AuthResult> {

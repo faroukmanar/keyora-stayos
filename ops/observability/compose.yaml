@@ -1,0 +1,28 @@
+name: keyora-observability
+services:
+  prometheus:
+    image: prom/prometheus:v3.7.3
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=7d"]
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./alerts.yml:/etc/prometheus/alerts.yml:ro
+    ports: ["127.0.0.1:9090:9090"]
+    security_opt: ["no-new-privileges:true"]
+  loki:
+    image: grafana/loki:3.5.7
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    ports: ["127.0.0.1:3100:3100"]
+    security_opt: ["no-new-privileges:true"]
+  vector:
+    image: timberio/vector:0.49.0-alpine
+    volumes: ["./vector.toml:/etc/vector/vector.toml:ro"]
+    ports: ["127.0.0.1:8686:8686"]
+    depends_on: [loki]
+    security_opt: ["no-new-privileges:true"]
+  grafana:
+    image: grafana/grafana:12.2.1
+    environment: { GF_AUTH_ANONYMOUS_ENABLED: "true", GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer, GF_SECURITY_ADMIN_PASSWORD: local-only-change-me }
+    volumes: ["./grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro"]
+    ports: ["127.0.0.1:3000:3000"]
+    depends_on: [prometheus, loki]
+    security_opt: ["no-new-privileges:true"]

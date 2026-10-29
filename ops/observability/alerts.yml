@@ -1,0 +1,19 @@
+groups:
+  - name: keyora
+    rules:
+      - alert: KeyoraHighP95Latency
+        expr: histogram_quantile(0.95, sum by (le) (rate(keyora_http_request_duration_seconds_bucket[5m]))) > 0.5
+        for: 10m
+      - alert: KeyoraServerErrors
+        expr: sum(rate(keyora_http_errors_total[5m])) > 0.05
+        for: 5m
+      - alert: KeyoraBookingConflictsSpike
+        expr: increase(keyora_booking_conflicts_total[10m]) > 10
+      - alert: KeyoraWebhookLag
+        expr: histogram_quantile(0.95, sum by (le) (rate(keyora_webhook_lag_seconds_bucket[10m]))) > 60
+        for: 10m
+      - alert: KeyoraRushTaskSla
+        expr: keyora_housekeeping_task_sla_seconds{priority="rush"} > 900
+        for: 5m
+      - alert: KeyoraTelemetryDropped
+        expr: increase(keyora_telemetry_dropped_total[5m]) > 0
