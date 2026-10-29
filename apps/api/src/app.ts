@@ -6,10 +6,12 @@ import { ZodError } from 'zod';
 import { API_VERSION, apiErrorSchema } from '../../../packages/contracts/src';
 import { registerAuthRoutes } from './auth/routes';
 import type { AuthService } from './auth/auth-service';
+import { registerNotificationRoutes } from './notifications/routes';
+import type { NotificationService } from './notifications/notification-service';
 import type { ApiConfig } from './config';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-export type AppDependencies = { ready?: () => Promise<void>; auth?: AuthService; close?: () => Promise<void> };
+export type AppDependencies = { ready?: () => Promise<void>; auth?: AuthService; notifications?: NotificationService; close?: () => Promise<void> };
 
 function statusFor(error: unknown) {
   if (error instanceof ZodError) return 422;
@@ -39,6 +41,7 @@ export async function buildApp(config: ApiConfig, dependencies: AppDependencies 
     },
   });
   if (dependencies.auth) await registerAuthRoutes(app, dependencies.auth, config);
+  if (dependencies.auth && dependencies.notifications) await registerNotificationRoutes(app, dependencies.notifications, dependencies.auth);
   if (dependencies.close) app.addHook('onClose', dependencies.close);
 
   app.addHook('onSend', async (request, reply) => {

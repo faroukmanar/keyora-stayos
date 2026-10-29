@@ -14,6 +14,11 @@ const configSchema = z.object({
   EMAIL_PROVIDER_URL: z.string().url().optional(),
   EMAIL_PROVIDER_TOKEN: z.string().min(20).optional(),
   PASSWORD_RESET_WEB_URL: z.string().url().optional(),
+  NOTIFICATION_MODE: z.enum(['fake', 'http']).default('fake'),
+  NOTIFICATION_PROVIDER_URL: z.string().url().optional(),
+  NOTIFICATION_PROVIDER_TOKEN: z.string().min(20).optional(),
+  NOTIFICATION_WEBHOOK_SECRET: z.string().min(32).optional(),
+  NOTIFICATION_ENCRYPTION_KEY_BASE64: z.string().optional(),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   TRUST_PROXY: booleanString.default(false),
 }).strict();
@@ -31,6 +36,11 @@ export type ApiConfig = {
   emailProviderUrl?: string;
   emailProviderToken?: string;
   passwordResetWebUrl?: string;
+  notificationMode: 'fake' | 'http';
+  notificationProviderUrl?: string;
+  notificationProviderToken?: string;
+  notificationWebhookSecret?: string;
+  notificationEncryptionKey: Buffer;
   logLevel: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'silent';
   trustProxy: boolean;
 };
@@ -58,6 +68,10 @@ export function loadConfig(environment: Record<string, string | undefined> = pro
     if (!value.EMAIL_PROVIDER_URL || !value.EMAIL_PROVIDER_TOKEN || !value.PASSWORD_RESET_WEB_URL) throw new Error('Production password recovery requires EMAIL_PROVIDER_URL, EMAIL_PROVIDER_TOKEN, and PASSWORD_RESET_WEB_URL');
     if (![value.EMAIL_PROVIDER_URL, value.PASSWORD_RESET_WEB_URL].every((url) => url.startsWith('https://'))) throw new Error('Production password recovery URLs must use HTTPS');
     if (value.EMAIL_PROVIDER_TOKEN.startsWith('replace-')) throw new Error('Production EMAIL_PROVIDER_TOKEN must come from the secret manager');
+    if (value.NOTIFICATION_MODE !== 'http' || !value.NOTIFICATION_PROVIDER_URL || !value.NOTIFICATION_PROVIDER_TOKEN || !value.NOTIFICATION_WEBHOOK_SECRET || !value.NOTIFICATION_ENCRYPTION_KEY_BASE64) throw new Error('Production notifications require HTTP provider URL/token, webhook secret, and encryption key');
+    if (!value.NOTIFICATION_PROVIDER_URL.startsWith('https://')) throw new Error('Production notification provider must use HTTPS');
   }
-  return { profile: value.KEYORA_PROFILE, host: value.API_HOST, port: value.API_PORT, corsOrigins, databaseUrl: value.DATABASE_URL, databaseTls: value.DATABASE_TLS, databaseMode: value.DATABASE_MODE, accessTokenSecret: value.ACCESS_TOKEN_SECRET, mfaEncryptionKey, emailProviderUrl: value.EMAIL_PROVIDER_URL, emailProviderToken: value.EMAIL_PROVIDER_TOKEN, passwordResetWebUrl: value.PASSWORD_RESET_WEB_URL, logLevel: value.LOG_LEVEL, trustProxy: value.TRUST_PROXY };
+  const notificationEncryptionKey = value.NOTIFICATION_ENCRYPTION_KEY_BASE64 && !value.NOTIFICATION_ENCRYPTION_KEY_BASE64.startsWith('replace-with') ? Buffer.from(value.NOTIFICATION_ENCRYPTION_KEY_BASE64, 'base64') : Buffer.from(value.ACCESS_TOKEN_SECRET.padEnd(32, '1').slice(0, 32));
+  if (notificationEncryptionKey.length !== 32) throw new Error('NOTIFICATION_ENCRYPTION_KEY_BASE64 must decode to exactly 32 bytes');
+  return { profile: value.KEYORA_PROFILE, host: value.API_HOST, port: value.API_PORT, corsOrigins, databaseUrl: value.DATABASE_URL, databaseTls: value.DATABASE_TLS, databaseMode: value.DATABASE_MODE, accessTokenSecret: value.ACCESS_TOKEN_SECRET, mfaEncryptionKey, emailProviderUrl: value.EMAIL_PROVIDER_URL, emailProviderToken: value.EMAIL_PROVIDER_TOKEN, passwordResetWebUrl: value.PASSWORD_RESET_WEB_URL, notificationMode: value.NOTIFICATION_MODE, notificationProviderUrl: value.NOTIFICATION_PROVIDER_URL, notificationProviderToken: value.NOTIFICATION_PROVIDER_TOKEN, notificationWebhookSecret: value.NOTIFICATION_WEBHOOK_SECRET, notificationEncryptionKey, logLevel: value.LOG_LEVEL, trustProxy: value.TRUST_PROXY };
 }

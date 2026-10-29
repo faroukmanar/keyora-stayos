@@ -60,6 +60,54 @@ export interface paths {
       };
     };
   };
+  "/v1/properties/{propertyId}/notifications/preview": {
+    post: {
+      requestBody: { content: { 'application/json': components['schemas']['NotificationPreviewRequest'] } };
+      responses: {
+        "200": components['schemas']['NotificationPreview'];
+        "403": components['schemas']['ApiError'];
+      };
+    };
+  };
+  "/v1/properties/{propertyId}/notifications/events": {
+    post: {
+      requestBody: { content: { 'application/json': components['schemas']['NotificationEventRequest'] } };
+      responses: {
+        "202": never;
+        "403": components['schemas']['ApiError'];
+      };
+    };
+  };
+  "/v1/properties/{propertyId}/notifications/deliveries": {
+    get: {
+      responses: {
+        "200": never;
+        "403": components['schemas']['ApiError'];
+      };
+    };
+  };
+  "/v1/properties/{propertyId}/notification-preferences/me": {
+    get: {
+      responses: {
+        "200": components['schemas']['NotificationPreferences'];
+      };
+    };
+    put: {
+      requestBody: { content: { 'application/json': components['schemas']['NotificationPreferences'] } };
+      responses: {
+        "204": never;
+      };
+    };
+  };
+  "/v1/notification-providers/primary/callback": {
+    post: {
+      requestBody: { content: { 'application/json': components['schemas']['NotificationCallback'] } };
+      responses: {
+        "204": never;
+        "401": components['schemas']['ApiError'];
+      };
+    };
+  };
   "/v1/properties/{propertyId}/rooms": {
     get: {
       responses: {
@@ -198,6 +246,50 @@ export interface components {
     "PasswordResetConfirm": {
       "token": string;
       "newPassword": string;
+    };
+    "NotificationPreviewRequest": {
+      "eventType": "reservation.confirmed" | "reservation.changed" | "arrival.reminder" | "task.assigned" | "task.blocked";
+      "channel": "email" | "push";
+      "locale": "en" | "fr" | "ar";
+      "variables": {
+      [key: string]: string;
+    };
+    };
+    "NotificationPreview": {
+      "templateId": string;
+      "version": number;
+      "locale": "en" | "fr" | "ar";
+      "subject": string;
+      "body": string;
+    };
+    "NotificationEventRequest": {
+      "eventId": string;
+      "eventType": "reservation.confirmed" | "reservation.changed" | "arrival.reminder" | "task.assigned" | "task.blocked";
+      "recipient": {
+      "type": "user" | "guest";
+      "id": string;
+      "email"?: string;
+      "pushToken"?: string;
+    };
+      "variables": {
+      [key: string]: string;
+    };
+    };
+    "NotificationPreferences": {
+      "locale": "en" | "fr" | "ar";
+      "emailEnabled": boolean;
+      "pushEnabled": boolean;
+      "arrivalReminders": boolean;
+      "quietStart": string;
+      "quietEnd": string;
+      "timezone": string;
+      "urgentBypass": boolean;
+      "unsubscribedAt": string | null;
+    };
+    "NotificationCallback": {
+      "id": string;
+      "messageId": string;
+      "status": "delivered" | "bounced" | "failed";
     };
   };
 }

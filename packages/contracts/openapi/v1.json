@@ -60,6 +60,26 @@
         "responses": { "204": { "description": "Password replaced and every session revoked" }, "401": { "$ref": "#/components/responses/Error" } }
       }
     },
+    "/v1/properties/{propertyId}/notifications/preview": {
+      "parameters": [{ "$ref": "#/components/parameters/PropertyId" }],
+      "post": { "operationId": "previewNotification", "x-idempotency-exempt": true, "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NotificationPreviewRequest" } } } }, "responses": { "200": { "description": "Rendered without sending", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NotificationPreview" } } } }, "403": { "$ref": "#/components/responses/Error" } } }
+    },
+    "/v1/properties/{propertyId}/notifications/events": {
+      "parameters": [{ "$ref": "#/components/parameters/PropertyId" }],
+      "post": { "operationId": "enqueueNotificationEvent", "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NotificationEventRequest" } } } }, "responses": { "202": { "description": "Event accepted idempotently" }, "403": { "$ref": "#/components/responses/Error" } } }
+    },
+    "/v1/properties/{propertyId}/notifications/deliveries": {
+      "parameters": [{ "$ref": "#/components/parameters/PropertyId" }],
+      "get": { "operationId": "listNotificationDeliveries", "responses": { "200": { "description": "Tenant-scoped redacted delivery history" }, "403": { "$ref": "#/components/responses/Error" } } }
+    },
+    "/v1/properties/{propertyId}/notification-preferences/me": {
+      "parameters": [{ "$ref": "#/components/parameters/PropertyId" }],
+      "get": { "operationId": "getMyNotificationPreferences", "responses": { "200": { "description": "Current user preferences", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NotificationPreferences" } } } } } },
+      "put": { "operationId": "updateMyNotificationPreferences", "x-idempotency-exempt": true, "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NotificationPreferences" } } } }, "responses": { "204": { "description": "Preferences updated" } } }
+    },
+    "/v1/notification-providers/primary/callback": {
+      "post": { "operationId": "receiveNotificationCallback", "security": [], "x-idempotency-exempt": true, "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NotificationCallback" } } } }, "responses": { "204": { "description": "Authenticated callback accepted idempotently" }, "401": { "$ref": "#/components/responses/Error" } } }
+    },
     "/v1/properties/{propertyId}/rooms": {
       "parameters": [{ "$ref": "#/components/parameters/PropertyId" }],
       "get": {
@@ -124,6 +144,11 @@
       ,"AuthResponse": { "type": "object", "additionalProperties": false, "required": ["user", "accessExpiresInSeconds"], "properties": { "user": { "$ref": "#/components/schemas/AuthUser" }, "accessExpiresInSeconds": { "type": "integer", "const": 300 }, "accessToken": { "type": "string" }, "refreshToken": { "type": "string" }, "refreshExpiresAt": { "type": "string", "format": "date-time" } } }
       ,"PasswordResetRequest": { "type": "object", "additionalProperties": false, "required": ["email", "propertyId"], "properties": { "email": { "type": "string", "format": "email" }, "propertyId": { "type": "string", "format": "uuid" } } }
       ,"PasswordResetConfirm": { "type": "object", "additionalProperties": false, "required": ["token", "newPassword"], "properties": { "token": { "type": "string", "minLength": 32, "maxLength": 512 }, "newPassword": { "type": "string", "minLength": 12, "maxLength": 128 } } }
+      ,"NotificationPreviewRequest": { "type": "object", "additionalProperties": false, "required": ["eventType", "channel", "locale", "variables"], "properties": { "eventType": { "enum": ["reservation.confirmed", "reservation.changed", "arrival.reminder", "task.assigned", "task.blocked"] }, "channel": { "enum": ["email", "push"] }, "locale": { "enum": ["en", "fr", "ar"] }, "variables": { "type": "object", "additionalProperties": { "type": "string" } } } }
+      ,"NotificationPreview": { "type": "object", "additionalProperties": false, "required": ["templateId", "version", "locale", "subject", "body"], "properties": { "templateId": { "type": "string", "format": "uuid" }, "version": { "type": "integer" }, "locale": { "enum": ["en", "fr", "ar"] }, "subject": { "type": "string" }, "body": { "type": "string" } } }
+      ,"NotificationEventRequest": { "type": "object", "additionalProperties": false, "required": ["eventId", "eventType", "recipient", "variables"], "properties": { "eventId": { "type": "string", "format": "uuid" }, "eventType": { "enum": ["reservation.confirmed", "reservation.changed", "arrival.reminder", "task.assigned", "task.blocked"] }, "recipient": { "type": "object", "additionalProperties": false, "required": ["type", "id"], "properties": { "type": { "enum": ["user", "guest"] }, "id": { "type": "string", "format": "uuid" }, "email": { "type": "string", "format": "email" }, "pushToken": { "type": "string" } } }, "variables": { "type": "object", "additionalProperties": { "type": "string" } } } }
+      ,"NotificationPreferences": { "type": "object", "additionalProperties": false, "required": ["locale", "emailEnabled", "pushEnabled", "arrivalReminders", "quietStart", "quietEnd", "timezone", "urgentBypass", "unsubscribedAt"], "properties": { "locale": { "enum": ["en", "fr", "ar"] }, "emailEnabled": { "type": "boolean" }, "pushEnabled": { "type": "boolean" }, "arrivalReminders": { "type": "boolean" }, "quietStart": { "type": "string" }, "quietEnd": { "type": "string" }, "timezone": { "type": "string" }, "urgentBypass": { "type": "boolean" }, "unsubscribedAt": { "type": ["string", "null"], "format": "date-time" } } }
+      ,"NotificationCallback": { "type": "object", "additionalProperties": false, "required": ["id", "messageId", "status"], "properties": { "id": { "type": "string" }, "messageId": { "type": "string" }, "status": { "enum": ["delivered", "bounced", "failed"] } } }
     }
   }
 }
