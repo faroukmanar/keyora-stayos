@@ -25,6 +25,9 @@ const configSchema = z.object({
   TRACE_EXPORT_TOKEN: z.string().min(20).optional(),
   ERROR_REPORT_URL: z.string().url().optional(),
   ERROR_REPORT_TOKEN: z.string().min(20).optional(),
+  RATE_LIMIT_REDIS_URL: z.string().url().optional(),
+  RATE_LIMIT_MAX: z.coerce.number().int().min(10).max(10_000).default(300),
+  AUTH_RATE_LIMIT_MAX: z.coerce.number().int().min(3).max(100).default(10),
   SERVICE_VERSION: z.string().regex(/^[a-zA-Z0-9._-]{1,80}$/).default('local'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   TRUST_PROXY: booleanString.default(false),
@@ -54,6 +57,9 @@ export type ApiConfig = {
   traceExportToken?: string;
   errorReportUrl?: string;
   errorReportToken?: string;
+  rateLimitRedisUrl?: string;
+  rateLimitMax: number;
+  authRateLimitMax: number;
   serviceVersion: string;
   logLevel: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'silent';
   trustProxy: boolean;
@@ -87,8 +93,10 @@ export function loadConfig(environment: Record<string, string | undefined> = pro
     if(value.OBSERVABILITY_MODE!=='export'||!value.TRACE_EXPORT_URL||!value.TRACE_EXPORT_TOKEN||!value.ERROR_REPORT_URL||!value.ERROR_REPORT_TOKEN)throw new Error('Production observability requires trace and error export endpoints/tokens');
     if(!value.TRACE_EXPORT_URL.startsWith('https://')||!value.ERROR_REPORT_URL.startsWith('https://'))throw new Error('Production observability endpoints must use HTTPS');
     if(/local-only|replace-with/i.test(value.METRICS_TOKEN))throw new Error('Production METRICS_TOKEN must come from the secret manager');
+    if (!value.RATE_LIMIT_REDIS_URL || !value.RATE_LIMIT_REDIS_URL.startsWith('rediss://')) throw new Error('Production RATE_LIMIT_REDIS_URL must use TLS (rediss://)');
+    if (!value.TRUST_PROXY) throw new Error('Production TRUST_PROXY=true is required for reliable client-IP security controls');
   }
   const notificationEncryptionKey = value.NOTIFICATION_ENCRYPTION_KEY_BASE64 && !value.NOTIFICATION_ENCRYPTION_KEY_BASE64.startsWith('replace-with') ? Buffer.from(value.NOTIFICATION_ENCRYPTION_KEY_BASE64, 'base64') : Buffer.from(value.ACCESS_TOKEN_SECRET.padEnd(32, '1').slice(0, 32));
   if (notificationEncryptionKey.length !== 32) throw new Error('NOTIFICATION_ENCRYPTION_KEY_BASE64 must decode to exactly 32 bytes');
-  return { profile: value.KEYORA_PROFILE, host: value.API_HOST, port: value.API_PORT, corsOrigins, databaseUrl: value.DATABASE_URL, databaseTls: value.DATABASE_TLS, databaseMode: value.DATABASE_MODE, accessTokenSecret: value.ACCESS_TOKEN_SECRET, mfaEncryptionKey, emailProviderUrl: value.EMAIL_PROVIDER_URL, emailProviderToken: value.EMAIL_PROVIDER_TOKEN, passwordResetWebUrl: value.PASSWORD_RESET_WEB_URL, notificationMode: value.NOTIFICATION_MODE, notificationProviderUrl: value.NOTIFICATION_PROVIDER_URL, notificationProviderToken: value.NOTIFICATION_PROVIDER_TOKEN, notificationWebhookSecret: value.NOTIFICATION_WEBHOOK_SECRET, notificationEncryptionKey, observabilityMode:value.OBSERVABILITY_MODE,metricsToken:value.METRICS_TOKEN,traceExportUrl:value.TRACE_EXPORT_URL,traceExportToken:value.TRACE_EXPORT_TOKEN,errorReportUrl:value.ERROR_REPORT_URL,errorReportToken:value.ERROR_REPORT_TOKEN,serviceVersion:value.SERVICE_VERSION, logLevel: value.LOG_LEVEL, trustProxy: value.TRUST_PROXY };
+  return { profile: value.KEYORA_PROFILE, host: value.API_HOST, port: value.API_PORT, corsOrigins, databaseUrl: value.DATABASE_URL, databaseTls: value.DATABASE_TLS, databaseMode: value.DATABASE_MODE, accessTokenSecret: value.ACCESS_TOKEN_SECRET, mfaEncryptionKey, emailProviderUrl: value.EMAIL_PROVIDER_URL, emailProviderToken: value.EMAIL_PROVIDER_TOKEN, passwordResetWebUrl: value.PASSWORD_RESET_WEB_URL, notificationMode: value.NOTIFICATION_MODE, notificationProviderUrl: value.NOTIFICATION_PROVIDER_URL, notificationProviderToken: value.NOTIFICATION_PROVIDER_TOKEN, notificationWebhookSecret: value.NOTIFICATION_WEBHOOK_SECRET, notificationEncryptionKey, observabilityMode:value.OBSERVABILITY_MODE,metricsToken:value.METRICS_TOKEN,traceExportUrl:value.TRACE_EXPORT_URL,traceExportToken:value.TRACE_EXPORT_TOKEN,errorReportUrl:value.ERROR_REPORT_URL,errorReportToken:value.ERROR_REPORT_TOKEN,rateLimitRedisUrl:value.RATE_LIMIT_REDIS_URL,rateLimitMax:value.RATE_LIMIT_MAX,authRateLimitMax:value.AUTH_RATE_LIMIT_MAX,serviceVersion:value.SERVICE_VERSION, logLevel: value.LOG_LEVEL, trustProxy: value.TRUST_PROXY };
 }

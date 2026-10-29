@@ -1,5 +1,7 @@
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
+import rateLimit from '@fastify/rate-limit';
+import type Redis from 'ioredis';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import { ZodError } from 'zod';
@@ -14,7 +16,7 @@ import{timingSafeEqual}from'node:crypto';
 import type { ApiConfig } from './config';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-export type AppDependencies = { ready?: () => Promise<void>; auth?: AuthService; notifications?: NotificationService; metrics?:MetricsService; traceExporter?:BufferedExporter; errorExporter?:BufferedExporter; close?: () => Promise<void> };
+export type AppDependencies = { ready?: () => Promise<void>; auth?: AuthService; notifications?: NotificationService; metrics?:MetricsService; traceExporter?:BufferedExporter; errorExporter?:BufferedExporter; rateLimitRedis?: Redis; close?: () => Promise<void> };
 
 function statusFor(error: unknown) {
   if (error instanceof ZodError) return 422;
@@ -34,14 +36,34 @@ export async function buildApp(config: ApiConfig, dependencies: AppDependencies 
     logger: config.profile === 'test' ? false : { level: config.logLevel,base:{service:'keyora-api',environment:config.profile,version:config.serviceVersion}, redact: { paths: ['req.headers.authorization','req.headers.cookie','req.headers.set-cookie','req.body','res.headers.set-cookie','password','token','refreshToken','secret'], censor: '[REDACTED]' },serializers:{req(request){return{method:request.method,url:String(request.url).split('?')[0],id:request.id};},res(reply){return{statusCode:reply.statusCode};}} },
   });
 
-  await app.register(helmet, { contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: 'same-site' } });
+  await app.register(helmet, { crossOriginResourcePolicy: { policy: 'same-site' } });
+  await app.register(rateLimit, {
+    global: true,
+    redis: dependencies.rateLimitRedis,
+    skipOnError: false,
+    max: config.rateLimitMax,
+    timeWindow: '1 minute',
+    keyGenerator: (request) => request.ip,
+    allowList: (request) => request.routeOptions.url === '/v1/health' || request.routeOptions.url === '/v1/ready',
+  });
   await app.register(cors, {
     credentials: true,
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     origin(origin, callback) {
       if (!origin || config.corsOrigins.includes(origin)) callback(null, true);
-      else callback(new Error('Origin is not allowed'), false);
+      else callback(Object.assign(new Error('Origin is not allowed'), { statusCode: 403, code: 'CORS_REJECTED' }), false);
     },
+  });
+  app.addHook('onRequest', async (request, reply) => {
+    if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) return;
+    const cookie = request.headers.cookie ?? '';
+    const usesWebSession = /(?:^|;\s*)(?:__Host-)?keyora_(?:access|refresh)=/.test(cookie);
+    if (!usesWebSession) return;
+    const origin = request.headers.origin;
+    const fetchSite = request.headers['sec-fetch-site'];
+    if (typeof origin !== 'string' || !config.corsOrigins.includes(origin) || fetchSite === 'cross-site') {
+      return reply.status(403).send({ error: { code: 'CSRF_REJECTED', message: 'Request origin is not allowed.', requestId: request.id } });
+    }
   });
   if (dependencies.auth) await registerAuthRoutes(app, dependencies.auth, config);
   if (dependencies.auth && dependencies.notifications) await registerNotificationRoutes(app, dependencies.notifications, dependencies.auth);
@@ -68,10 +90,10 @@ export async function buildApp(config: ApiConfig, dependencies: AppDependencies 
   app.setErrorHandler(async (error, request, reply) => {
     const status = statusFor(error);
     if (status >= 500) request.log.error({ err: error, requestId: request.id }, 'Unhandled request error');
-    const message = status >= 500 ? 'An unexpected error occurred.' : status === 422 ? 'The request failed validation.' : error instanceof Error ? error.message : 'The request could not be processed.';
+    const message = status >= 500 ? 'An unexpected error occurred.' : status === 429 ? 'Too many requests. Try again later.' : status === 422 ? 'The request failed validation.' : error instanceof Error ? error.message : 'The request could not be processed.';
     const suppliedCode = error && typeof error === 'object' && 'code' in error && typeof error.code === 'string' && /^[A-Z0-9_]+$/.test(error.code) ? error.code : null;
     const route=request.routeOptions.url??'unmatched';dependencies.metrics?.error(route,suppliedCode??(status>=500?'INTERNAL_ERROR':'REQUEST_ERROR'));if(status>=500){const observation=observations.get(request);dependencies.errorExporter?.record({traceId:observation?.traceId??'0'.repeat(32),requestId:request.id,route,type:error instanceof Error?error.name:'Error',code:suppliedCode??'INTERNAL_ERROR',message:sanitizeTelemetryMessage(error instanceof Error?error.message:'unexpected'),environment:config.profile,version:config.serviceVersion,timestamp:new Date().toISOString()} satisfies ErrorRecord);}
-    return reply.status(status).send(apiErrorSchema.parse({ error: { code: status >= 500 ? 'INTERNAL_ERROR' : status === 422 ? 'VALIDATION_ERROR' : suppliedCode ?? 'REQUEST_ERROR', message, requestId: request.id } }));
+    return reply.status(status).send(apiErrorSchema.parse({ error: { code: status >= 500 ? 'INTERNAL_ERROR' : status === 429 ? 'RATE_LIMITED' : status === 422 ? 'VALIDATION_ERROR' : suppliedCode ?? 'REQUEST_ERROR', message, requestId: request.id } }));
   });
   return app;
 }

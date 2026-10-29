@@ -26,7 +26,7 @@ async function main() {
 
   const pool = new pg.Pool({ connectionString, max: 5 });
   const delivered: Array<{ email: string; token: string }> = [];
-  const config = loadConfig({ KEYORA_PROFILE: 'test', DATABASE_MODE: 'required', DATABASE_URL: connectionString });
+  const config = loadConfig({ KEYORA_PROFILE: 'test', DATABASE_MODE: 'required', DATABASE_URL: connectionString, AUTH_RATE_LIMIT_MAX: '100' });
   const auth = await AuthService.create({ repository: new PgAuthRepository(pool), accessTokenSecret: config.accessTokenSecret, mfaKey: config.mfaEncryptionKey, deliverPasswordReset: async ({ email, token }) => { delivered.push({ email, token }); } });
   const app = await buildApp(config, { auth });
   const login = (email: string, password = originalPassword, extra: Record<string, unknown> = {}) => app.inject({ method: 'POST', url: '/v1/auth/login', payload: { email, password, propertyId, clientType: 'native', deviceName: 'Integration device', ...extra } });
@@ -57,7 +57,7 @@ async function main() {
     const familyRevoked = await app.inject({ method: 'POST', url: '/v1/auth/refresh', payload: { clientType: 'native', refreshToken: rotated.json().refreshToken } });
     assert.equal(familyRevoked.statusCode, 401, familyRevoked.body);
 
-    const web = await app.inject({ method: 'POST', url: '/v1/auth/login', payload: { email: 'owner@demo.keyora.test', password: originalPassword, propertyId, clientType: 'web', deviceName: 'Browser test' } });
+    const web = await app.inject({ method: 'POST', url: '/v1/auth/login', headers: { origin: config.corsOrigins[0], 'sec-fetch-site': 'same-origin' }, payload: { email: 'owner@demo.keyora.test', password: originalPassword, propertyId, clientType: 'web', deviceName: 'Browser test' } });
     assert.equal(web.statusCode, 200, web.body);
     assert.equal('accessToken' in web.json(), false);
     const cookies = web.headers['set-cookie'];

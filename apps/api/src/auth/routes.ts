@@ -25,16 +25,25 @@ export async function registerAuthRoutes(app: FastifyInstance, auth: AuthService
   const clearWebCookies = (reply: FastifyReply) => { reply.clearCookie(accessCookie, cookieOptions); reply.clearCookie(refreshCookie, cookieOptions); };
   const bearer = (request: FastifyRequest) => request.headers.authorization?.match(/^Bearer (.+)$/i)?.[1] ?? request.cookies[accessCookie];
   const actor = async (request: FastifyRequest): Promise<Actor> => { const token = bearer(request); if (!token) throw Object.assign(new Error('Authentication is required.'), { statusCode: 401 }); return auth.authenticate(token); };
+  const authRateLimit = { config: { rateLimit: { max: config.authRateLimitMax, timeWindow: '1 minute', groupId: 'authentication' } } } as const;
+  const assertWebOrigin = (request: FastifyRequest) => {
+    const origin = request.headers.origin;
+    if (typeof origin !== 'string' || !config.corsOrigins.includes(origin) || request.headers['sec-fetch-site'] === 'cross-site') {
+      throw Object.assign(new Error('Request origin is not allowed.'), { statusCode: 403, code: 'CSRF_REJECTED' });
+    }
+  };
 
-  app.post('/v1/auth/login', async (request, reply) => {
+  app.post('/v1/auth/login', authRateLimit, async (request, reply) => {
     const input = loginSchema.parse(request.body);
+    if (input.clientType === 'web') assertWebOrigin(request);
     const result = await auth.login({ ...input, ip: request.ip, userAgent: request.headers['user-agent'] });
     if (input.clientType === 'web') { setWebCookies(reply, result); return { user: result.actor, accessExpiresInSeconds: 300 }; }
     return { user: result.actor, accessToken: result.accessToken, refreshToken: result.refreshToken, accessExpiresInSeconds: 300, refreshExpiresAt: result.refreshExpiresAt.toISOString() };
   });
 
-  app.post('/v1/auth/refresh', async (request, reply) => {
+  app.post('/v1/auth/refresh', authRateLimit, async (request, reply) => {
     const input = refreshSchema.parse(request.body);
+    if (input.clientType === 'web') assertWebOrigin(request);
     const presented = input.clientType === 'web' ? request.cookies[refreshCookie] : input.refreshToken;
     if (!presented) throw Object.assign(new Error('Refresh token is required.'), { statusCode: 401 });
     const result = await auth.refresh(presented, request.ip, request.headers['user-agent']);
@@ -49,8 +58,8 @@ export async function registerAuthRoutes(app: FastifyInstance, auth: AuthService
     return reply.status(204).send();
   });
 
-  app.post('/v1/auth/password-reset/request', async (request, reply) => { const input = resetRequestSchema.parse(request.body); try { await auth.requestPasswordReset(input.email, input.propertyId); } catch (error) { request.log.error({ err: error }, 'Password reset delivery failed'); } return reply.status(202).send({ accepted: true }); });
-  app.post('/v1/auth/password-reset/confirm', async (request, reply) => { const input = resetConfirmSchema.parse(request.body); await auth.confirmPasswordReset(input.token, input.newPassword); clearWebCookies(reply); return reply.status(204).send(); });
+  app.post('/v1/auth/password-reset/request', authRateLimit, async (request, reply) => { const input = resetRequestSchema.parse(request.body); try { await auth.requestPasswordReset(input.email, input.propertyId); } catch (error) { request.log.error({ err: error }, 'Password reset delivery failed'); } return reply.status(202).send({ accepted: true }); });
+  app.post('/v1/auth/password-reset/confirm', authRateLimit, async (request, reply) => { const input = resetConfirmSchema.parse(request.body); await auth.confirmPasswordReset(input.token, input.newPassword); clearWebCookies(reply); return reply.status(204).send(); });
   app.get('/v1/auth/sessions', async (request) => auth.listSessions(await actor(request)));
   app.delete('/v1/auth/sessions/:id', async (request, reply) => { const params = sessionParamsSchema.parse(request.params); await auth.revokeSession(await actor(request), params.id); return reply.status(204).send(); });
   app.post('/v1/auth/mfa/setup', async (request) => auth.setupMfa(await actor(request)));
