@@ -8,6 +8,7 @@ KEYORA StayOS is an Expo / React Native hospitality operations app for independe
 npm install
 npm run check
 npm run web
+npm run api:smoke
 ```
 
 Native development uses `npm run ios` or `npm run android`. The project targets Expo SDK 58, React Native 0.88, React 19, and TypeScript strict mode.
@@ -18,6 +19,7 @@ Native development uses `npm run ios` or `npm run android`. The project targets 
 - `npm run typecheck` — strict TypeScript validation
 - `npm test` — deterministic domain tests
 - `npm run check` — all gates in sequence
+- `npm run api:smoke` — disposable API startup, probes, and graceful-shutdown smoke test
 - `npx expo export --platform web` — production web bundle smoke test
 
 ## Product surface

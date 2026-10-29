@@ -15,6 +15,16 @@
         "responses": { "200": { "description": "Process health", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HealthResponse" } } } } }
       }
     },
+    "/v1/ready": {
+      "get": {
+        "operationId": "getReadiness",
+        "security": [],
+        "responses": {
+          "200": { "description": "Dependencies are ready to receive traffic", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReadinessResponse" } } } },
+          "503": { "description": "One or more dependencies are unavailable", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReadinessResponse" } } } }
+        }
+      }
+    },
     "/v1/properties/{propertyId}/rooms": {
       "parameters": [{ "$ref": "#/components/parameters/PropertyId" }],
       "get": {
@@ -64,6 +74,7 @@
     },
     "schemas": {
       "HealthResponse": { "type": "object", "additionalProperties": false, "required": ["status", "version"], "properties": { "status": { "const": "ok" }, "version": { "type": "string" } } },
+      "ReadinessResponse": { "type": "object", "additionalProperties": false, "required": ["status", "version"], "properties": { "status": { "enum": ["ready", "unavailable"] }, "version": { "type": "string" } } },
       "Money": { "type": "object", "additionalProperties": false, "required": ["amountMinor", "currency"], "properties": { "amountMinor": { "type": "integer", "minimum": 0 }, "currency": { "type": "string", "pattern": "^[A-Z]{3}$" } } },
       "Room": { "type": "object", "additionalProperties": false, "required": ["id", "organizationId", "propertyId", "name", "roomType", "capacity", "status", "version", "updatedAt"], "properties": { "id": { "type": "string", "format": "uuid" }, "organizationId": { "type": "string", "format": "uuid" }, "propertyId": { "type": "string", "format": "uuid" }, "name": { "type": "string", "minLength": 1, "maxLength": 120 }, "roomType": { "type": "string", "minLength": 1, "maxLength": 80 }, "capacity": { "type": "integer", "minimum": 1, "maximum": 50 }, "status": { "enum": ["available", "occupied", "cleaning", "maintenance"] }, "version": { "type": "integer", "minimum": 1 }, "updatedAt": { "type": "string", "format": "date-time" } } },
       "GuestSummary": { "type": "object", "additionalProperties": false, "required": ["id", "displayName", "vip"], "properties": { "id": { "type": "string", "format": "uuid" }, "displayName": { "type": "string", "minLength": 1, "maxLength": 160 }, "vip": { "type": "boolean" } } },

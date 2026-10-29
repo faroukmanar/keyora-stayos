@@ -7,6 +7,9 @@ export interface paths {
   '/v1/health': {
     get: { responses: { 200: { content: { 'application/json': components['schemas']['HealthResponse'] } } } };
   };
+  '/v1/ready': {
+    get: { responses: { 200: { content: { 'application/json': components['schemas']['ReadinessResponse'] } }; 503: { content: { 'application/json': components['schemas']['ReadinessResponse'] } } } };
+  };
   '/v1/properties/{propertyId}/rooms': {
     get: { responses: { 200: { content: { 'application/json': components['schemas']['RoomPage'] } } } };
   };
@@ -19,6 +22,7 @@ export interface paths {
 export interface components {
   schemas: {
     HealthResponse: { status: 'ok'; version: string };
+    ReadinessResponse: { status: 'ready' | 'unavailable'; version: string };
     Money: { amountMinor: number; currency: string };
     Room: { id: string; organizationId: string; propertyId: string; name: string; roomType: string; capacity: number; status: 'available' | 'occupied' | 'cleaning' | 'maintenance'; version: number; updatedAt: string };
     GuestSummary: { id: string; displayName: string; vip: boolean };
