@@ -2,7 +2,7 @@ import type { AppRole } from '../../../../packages/contracts/src';
 
 export const permissions = [
   'property:manage', 'staff:manage', 'room:read', 'room:write', 'reservation:read', 'reservation:write',
-  'reservation:check-in', 'guest:read', 'guest:write', 'guest:export', 'housekeeping:read', 'housekeeping:write',
+  'reservation:check-in', 'guest:read', 'guest:write', 'guest:sensitive', 'guest:export', 'housekeeping:read', 'housekeeping:write',
   'payment:read', 'payment:refund', 'audit:read',
 ] as const;
 export type Permission = typeof permissions[number];
@@ -11,8 +11,8 @@ const all = new Set<Permission>(permissions);
 const rolePermissions: Record<AppRole, ReadonlySet<Permission>> = {
   owner: all,
   manager: new Set(permissions.filter((permission) => permission !== 'property:manage')),
-  'front-desk': new Set(['room:read', 'room:write', 'reservation:read', 'reservation:write', 'reservation:check-in', 'guest:read', 'guest:write', 'payment:read', 'housekeeping:read']),
-  housekeeping: new Set(['room:read', 'housekeeping:read', 'housekeeping:write']),
+  'front-desk': new Set(['room:read', 'room:write', 'reservation:read', 'reservation:write', 'reservation:check-in', 'guest:read', 'guest:write', 'guest:sensitive', 'payment:read', 'housekeeping:read']),
+  housekeeping: new Set(['room:read', 'guest:read', 'housekeeping:read', 'housekeeping:write']),
 };
 
 export function hasPermission(role: AppRole, permission: Permission) {

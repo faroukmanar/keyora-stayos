@@ -33,7 +33,7 @@ async function main() {
 
   try {
     for (const permission of permissions) assert.equal(hasPermission('owner', permission), true, `owner missing ${permission}`);
-    const housekeepingAllowed: Permission[] = ['room:read', 'housekeeping:read', 'housekeeping:write'];
+    const housekeepingAllowed: Permission[] = ['room:read', 'guest:read', 'housekeeping:read', 'housekeeping:write'];
     for (const permission of permissions) assert.equal(hasPermission('housekeeping', permission), housekeepingAllowed.includes(permission), `housekeeping matrix mismatch for ${permission}`);
     assert.equal(hasPermission('front-desk', 'payment:refund'), false);
     assert.equal(hasPermission('manager', 'property:manage'), false);

@@ -136,7 +136,7 @@ export async function recordAudit(
   input: {
     scope: TenantScope;
     actor?: Actor;
-    category: 'authentication' | 'permission' | 'reservation' | 'room' | 'payment' | 'export' | 'operations';
+    category: 'authentication' | 'permission' | 'reservation' | 'room' | 'payment' | 'export' | 'operations' | 'guest';
     action: string;
     outcome?: 'succeeded' | 'denied' | 'failed';
     entityType: string;
