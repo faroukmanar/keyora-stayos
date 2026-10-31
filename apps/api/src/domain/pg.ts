@@ -34,6 +34,25 @@ export function hashRequest(value: unknown) {
   return createHash('sha256').update(canonicalJson(value)).digest('hex');
 }
 
+export function dateOnly(value: unknown): string {
+  if (value instanceof Date) {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  return String(value).slice(0, 10);
+}
+
+/**
+ * Postgres timestamptz columns are returned as Date objects by node-postgres.
+ * `String(date)` drops milliseconds, which silently changes signed payloads,
+ * so always normalize through the Date instance when present.
+ */
+export function isoTimestamp(value: unknown): string {
+  return (value instanceof Date ? value : new Date(String(value))).toISOString();
+}
+
 export async function withTenant<T>(pool: Pool, scope: TenantScope, work: (client: PoolClient) => Promise<T>) {
   const client = await pool.connect();
   try {

@@ -16,6 +16,10 @@ import{traceContext,sanitizeTelemetryMessage,type BufferedExporter,type SpanReco
 import type { ApiConfig } from './config';
 import { registerInventoryRoutes } from './domain/inventory-routes';
 import { InventoryService } from './domain/inventory-service';
+import { registerRevenueRoutes } from './domain/revenue-routes';
+import { RevenueService } from './domain/revenue-service';
+import { registerReservationRoutes } from './domain/reservation-routes';
+import { ReservationService } from './domain/reservation-service';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export type AppDependencies = { ready?: () => Promise<void>; auth?: AuthService; notifications?: NotificationService; metrics?:MetricsService; traceExporter?:BufferedExporter; errorExporter?:BufferedExporter; rateLimitRedis?: Redis; close?: () => Promise<void>; pool?: Pool };
@@ -72,6 +76,9 @@ export async function buildApp(config: ApiConfig, dependencies: AppDependencies 
   if (dependencies.auth && dependencies.pool) {
     const mediaSecret = createHash('sha256').update(`${config.accessTokenSecret}:media-signing`).digest();
     await registerInventoryRoutes(app, { pool: dependencies.pool, auth: dependencies.auth, service: new InventoryService(mediaSecret) });
+    const revenue = new RevenueService(createHash('sha256').update(`${config.accessTokenSecret}:quote-signing`).digest());
+    await registerRevenueRoutes(app, { pool: dependencies.pool, auth: dependencies.auth, revenue });
+    await registerReservationRoutes(app, { pool: dependencies.pool, auth: dependencies.auth, reservations: new ReservationService(revenue), metrics: dependencies.metrics });
   }
   if (dependencies.close) app.addHook('onClose', dependencies.close);
   const observations=new WeakMap<object,{start:bigint;traceId:string;spanId:string;parentSpanId?:string}>();

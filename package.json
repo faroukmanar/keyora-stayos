@@ -26,6 +26,7 @@
     "observability:test": "tsx apps/api/test/observability.integration.ts",
     "security:test": "tsx apps/api/test/security.integration.ts",
     "inventory:test": "tsx apps/api/test/inventory.integration.ts",
+    "reservations:test": "tsx apps/api/test/reservations.integration.ts",
     "security:licenses": "node scripts/check-licenses.cjs",
     "notifications:worker": "tsx apps/api/src/notifications/worker.ts",
     "lint": "expo lint",

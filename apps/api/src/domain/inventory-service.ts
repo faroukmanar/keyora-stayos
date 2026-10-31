@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { PoolClient } from 'pg';
-import { DomainError, notFound, recordAudit, staleVersion, type TenantScope } from './pg';
+import { DomainError, isoTimestamp, notFound, recordAudit, staleVersion, type TenantScope } from './pg';
 import type { Actor } from '../auth/types';
 
 export type RoomInput = {
@@ -24,8 +24,8 @@ function roomFrom(row: Record<string, unknown>) {
     id: String(row.id), organizationId: String(row.organization_id), propertyId: String(row.property_id),
     roomTypeId: String(row.room_type_id), name: String(row.name), roomType: String(row.room_type),
     capacity: Number(row.capacity), status: row.status as RoomInput['status'], sortOrder: Number(row.sort_order),
-    amenities: (row.amenities as string[] | null) ?? [], archivedAt: row.archived_at ? new Date(String(row.archived_at)).toISOString() : null,
-    version: Number(row.version), updatedAt: new Date(String(row.updated_at)).toISOString(),
+    amenities: (row.amenities as string[] | null) ?? [], archivedAt: row.archived_at ? isoTimestamp(row.archived_at) : null,
+    version: Number(row.version), updatedAt: isoTimestamp(row.updated_at),
   };
 }
 
@@ -147,7 +147,7 @@ export class InventoryService {
     const result = await client.query('SELECT * FROM property_policies WHERE organization_id=$1 AND property_id=$2', [scope.organizationId, scope.propertyId]);
     if (!result.rowCount) return { checkInTime: '15:00', checkOutTime: '11:00', cancellationPolicy: { freeUntilHours: 48, penaltyPercent: 100 }, houseRules: [] as string[], updatedAt: null };
     const row = result.rows[0];
-    return { checkInTime: String(row.check_in_time), checkOutTime: String(row.check_out_time), cancellationPolicy: row.cancellation_policy, houseRules: row.house_rules, updatedAt: new Date(String(row.updated_at)).toISOString() };
+    return { checkInTime: String(row.check_in_time), checkOutTime: String(row.check_out_time), cancellationPolicy: row.cancellation_policy, houseRules: row.house_rules, updatedAt: isoTimestamp(row.updated_at) };
   }
 
   async savePolicies(client: PoolClient, scope: TenantScope, actor: Actor, input: { checkInTime: string; checkOutTime: string; cancellationPolicy: Record<string, unknown>; houseRules: string[] }, requestId: string) {
@@ -227,12 +227,12 @@ export class InventoryService {
 
   async listMaintenanceBlocks(client: PoolClient, scope: TenantScope) {
     const result = await client.query('SELECT id, room_id, reason, starts_at, ends_at, status, created_at, released_at FROM maintenance_blocks WHERE organization_id=$1 AND property_id=$2 ORDER BY created_at DESC LIMIT 200', [scope.organizationId, scope.propertyId]);
-    return result.rows.map((row) => ({ id: String(row.id), roomId: String(row.room_id), reason: String(row.reason), startsAt: new Date(String(row.starts_at)).toISOString(), endsAt: new Date(String(row.ends_at)).toISOString(), status: String(row.status), createdAt: new Date(String(row.created_at)).toISOString(), releasedAt: row.released_at ? new Date(String(row.released_at)).toISOString() : null }));
+    return result.rows.map((row) => ({ id: String(row.id), roomId: String(row.room_id), reason: String(row.reason), startsAt: isoTimestamp(row.starts_at), endsAt: isoTimestamp(row.ends_at), status: String(row.status), createdAt: isoTimestamp(row.created_at), releasedAt: row.released_at ? isoTimestamp(row.released_at) : null }));
   }
 
   async listRoomTypes(client: PoolClient, scope: TenantScope) {
     const result = await client.query('SELECT id, name, capacity, archived_at FROM room_types WHERE organization_id=$1 AND property_id=$2 ORDER BY name', [scope.organizationId, scope.propertyId]);
-    return result.rows.map((row) => ({ id: String(row.id), name: String(row.name), capacity: Number(row.capacity), archivedAt: row.archived_at ? new Date(String(row.archived_at)).toISOString() : null }));
+    return result.rows.map((row) => ({ id: String(row.id), name: String(row.name), capacity: Number(row.capacity), archivedAt: row.archived_at ? isoTimestamp(row.archived_at) : null }));
   }
 
   async createRoomType(client: PoolClient, scope: TenantScope, actor: Actor, input: { name: string; capacity: number }, requestId: string) {
