@@ -5,7 +5,7 @@ export type RoomStatus = 'available' | 'occupied' | 'cleaning' | 'maintenance';
 export type ReservationStatus = 'confirmed' | 'checked-in' | 'checked-out' | 'cancelled';
 export type TaskStatus = 'ready' | 'in-progress' | 'blocked' | 'done';
 
-export type AppUser = { id: string; name: string; role: AppRole };
+export type AppUser = { id: string; name: string; role: AppRole; organizationId?: string; propertyId?: string; sessionId?: string };
 export type Room = {
   id: string;
   name: string;

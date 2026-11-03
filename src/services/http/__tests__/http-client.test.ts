@@ -61,4 +61,15 @@ describe('HttpClient', () => {
     expect(queryKeys.rooms(a)).not.toEqual(queryKeys.rooms(b));
     expect(queryKeys.reservations(a).slice(0, 4)).toEqual(['organization', 'org-a', 'property', 'property-a']);
   });
+
+  it('uses cookie credentials for web requests without exposing an authorization token', async () => {
+    const calls: RequestInit[] = [];
+    const fetcher = jest.fn(async (_url: string | URL | Request, init?: RequestInit) => { calls.push(init!); return response(200, { value: 'cookie-session' }); });
+    const client = new HttpClient({ baseUrl: 'https://api.example.test', platform: 'web', uuid: uuidFactory, fetcher });
+    client.setAccessToken('must-not-leak-to-browser');
+    await expect(client.request({ path: '/v1/properties/10000000-0000-4000-8000-000000000002/rooms', schema: z.object({ value: z.string() }) })).resolves.toEqual({ value: 'cookie-session' });
+    const init = calls[0];
+    expect(init.credentials).toBe('include');
+    expect((init.headers as Record<string, string>).authorization).toBeUndefined();
+  });
 });

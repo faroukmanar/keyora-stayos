@@ -8,6 +8,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "web:e2e": "playwright test",
     "api:dev": "tsx watch apps/api/src/server.ts",
     "api:start": "tsx apps/api/src/server.ts",
     "api:smoke": "node scripts/smoke-api.cjs",
@@ -83,6 +84,7 @@
     "zustand": "^5.0.16"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@testing-library/react-native": "^14.1.0",
     "@types/jest": "30.0.0",
     "@types/pg": "^8.23.1",
