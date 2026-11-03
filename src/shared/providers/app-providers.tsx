@@ -7,6 +7,7 @@ import { useAuthStore } from '@/features/auth/store/auth-store';
 import { restoreNativeSession } from '@/features/auth/native-session';
 import { DeepLinkRouter } from '@/shared/navigation/deep-link-router';
 import { NotificationRouting } from '@/shared/notifications/notification-routing';
+import { EventSync } from '@/features/realtime/event-sync';
 
 const webSessionSchema = z.object({ user: z.object({ id: z.string().uuid(), organizationId: z.string().uuid(), propertyId: z.string().uuid(), displayName: z.string().min(1), role: appRoleSchema, sessionId: z.string().uuid() }).passthrough() }).passthrough();
 
@@ -44,4 +45,4 @@ function NativeSessionMonitor() {
   return null;
 }
 
-export function AppProviders({ children }: PropsWithChildren) { const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: 1 } } })); return <QueryClientProvider client={client}><SessionBootstrap /><NativeSessionMonitor /><DeepLinkRouter /><NotificationRouting />{children}</QueryClientProvider>; }
+export function AppProviders({ children }: PropsWithChildren) { const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: 1 } } })); return <QueryClientProvider client={client}><SessionBootstrap /><NativeSessionMonitor /><DeepLinkRouter /><NotificationRouting /><EventSync />{children}</QueryClientProvider>; }

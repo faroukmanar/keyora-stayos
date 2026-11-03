@@ -22,6 +22,7 @@ import { registerReservationRoutes } from './domain/reservation-routes';
 import { ReservationService } from './domain/reservation-service';
 import { registerGuestRoutes } from './domain/guest-routes';
 import { GuestService } from './domain/guest-service';
+import { registerEventRoutes } from './realtime/event-routes';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export type AppDependencies = { ready?: () => Promise<void>; auth?: AuthService; notifications?: NotificationService; metrics?:MetricsService; traceExporter?:BufferedExporter; errorExporter?:BufferedExporter; rateLimitRedis?: Redis; close?: () => Promise<void>; pool?: Pool };
@@ -83,6 +84,7 @@ export async function buildApp(config: ApiConfig, dependencies: AppDependencies 
     await registerReservationRoutes(app, { pool: dependencies.pool, auth: dependencies.auth, reservations: new ReservationService(revenue), metrics: dependencies.metrics });
     const guestSecret = createHash('sha256').update(`${config.accessTokenSecret}:guest`).digest();
     await registerGuestRoutes(app, { pool: dependencies.pool, auth: dependencies.auth, guests: new GuestService(guestSecret) });
+    await registerEventRoutes(app, { pool: dependencies.pool, auth: dependencies.auth });
   }
   if (dependencies.close) app.addHook('onClose', dependencies.close);
   const observations=new WeakMap<object,{start:bigint;traceId:string;spanId:string;parentSpanId?:string}>();
