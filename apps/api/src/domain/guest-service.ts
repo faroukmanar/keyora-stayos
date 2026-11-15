@@ -306,24 +306,8 @@ export class GuestService {
     return this.get(client, scope, targetId, true);
   }
 
-  private async anonymizeRow(client: PoolClient, scope: TenantScope, guestId: string) {
-    const existing = await client.query(
-      'SELECT anonymized_at FROM guests WHERE id=$1 AND organization_id=$2 AND property_id=$3 FOR UPDATE',
-      [guestId, scope.organizationId, scope.propertyId],
-    );
-    if (!existing.rowCount) throw notFound('Guest');
-    const result = await client.query(
-      `UPDATE guests SET display_name='Anonymized guest', email=NULL, phone_encrypted=NULL, phone_hash=NULL, preferred_language=NULL,
-         preferences='{}'::jsonb, vip=false, marketing_opt_in=false, marketing_opt_in_at=NULL, analytics_opt_in=false,
-         anonymized_at=now(), version=version+1, updated_at=now()
-       WHERE id=$1 AND organization_id=$2 AND property_id=$3 AND anonymized_at IS NULL RETURNING id`,
-      [guestId, scope.organizationId, scope.propertyId],
-    );
-    if (result.rowCount) {
-      await client.query('UPDATE guest_notes SET deleted_at=now() WHERE guest_id=$1 AND organization_id=$2 AND property_id=$3 AND deleted_at IS NULL', [guestId, scope.organizationId, scope.propertyId]);
-    }
-    await client.query("UPDATE guest_merges SET source_snapshot = source_snapshot - 'displayName' WHERE source_guest_id=$1 AND organization_id=$2 AND property_id=$3", [guestId, scope.organizationId, scope.propertyId]);
-    return Boolean(result.rowCount);
+  private anonymizeRow(client: PoolClient, scope: TenantScope, guestId: string, reason: ErasureReason = 'request') {
+    return anonymizeGuestRow(client, scope, guestId, reason);
   }
 
   async anonymize(client: PoolClient, scope: TenantScope, actor: Actor, guestId: string, requestId: string) {
@@ -357,10 +341,38 @@ export class GuestService {
     let anonymized = 0;
     if (!input.dryRun) {
       for (const row of candidates.rows) {
-        if (await this.anonymizeRow(client, scope, String(row.id))) anonymized += 1;
+        if (await this.anonymizeRow(client, scope, String(row.id), 'retention')) anonymized += 1;
       }
     }
     await recordAudit(client, { scope, actor, category: 'guest', action: 'guest.retention_applied', entityType: 'property', requestId, metadata: { cutoff: cutoff.toISOString(), candidates: candidates.rowCount ?? 0, anonymized, dryRun: input.dryRun } });
     return { cutoff: cutoff.toISOString(), candidates: candidates.rowCount ?? 0, anonymized, dryRun: input.dryRun };
   }
+}
+
+export type ErasureReason = 'request' | 'retention';
+
+/**
+ * Erases a guest's personal data and records the id in the erasure ledger (no personal data), so a
+ * restore from an older backup can replay the erasure. Returns true when the guest was newly erased.
+ * Must run inside a tenant-scoped transaction.
+ */
+export async function anonymizeGuestRow(client: PoolClient, scope: TenantScope, guestId: string, reason: ErasureReason) {
+  const existing = await client.query(
+    'SELECT anonymized_at FROM guests WHERE id=$1 AND organization_id=$2 AND property_id=$3 FOR UPDATE',
+    [guestId, scope.organizationId, scope.propertyId],
+  );
+  if (!existing.rowCount) throw notFound('Guest');
+  const result = await client.query(
+    `UPDATE guests SET display_name='Anonymized guest', email=NULL, phone_encrypted=NULL, phone_hash=NULL, preferred_language=NULL,
+       preferences='{}'::jsonb, vip=false, marketing_opt_in=false, marketing_opt_in_at=NULL, analytics_opt_in=false,
+       anonymized_at=now(), version=version+1, updated_at=now()
+     WHERE id=$1 AND organization_id=$2 AND property_id=$3 AND anonymized_at IS NULL RETURNING id`,
+    [guestId, scope.organizationId, scope.propertyId],
+  );
+  if (result.rowCount) {
+    await client.query('UPDATE guest_notes SET deleted_at=now() WHERE guest_id=$1 AND organization_id=$2 AND property_id=$3 AND deleted_at IS NULL', [guestId, scope.organizationId, scope.propertyId]);
+    await client.query('INSERT INTO privacy_erasure_ledger(organization_id, property_id, guest_id, reason) VALUES($1,$2,$3,$4)', [scope.organizationId, scope.propertyId, guestId, reason]);
+  }
+  await client.query("UPDATE guest_merges SET source_snapshot = source_snapshot - 'displayName' WHERE source_guest_id=$1 AND organization_id=$2 AND property_id=$3", [guestId, scope.organizationId, scope.propertyId]);
+  return Boolean(result.rowCount);
 }
