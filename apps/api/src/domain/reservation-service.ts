@@ -131,8 +131,8 @@ export class ReservationService {
       const existing = await client.query('SELECT 1 FROM housekeeping_tasks WHERE reservation_id=$1', [reservationId]);
       if (!existing.rowCount) {
         await client.query(
-          `INSERT INTO housekeeping_tasks(organization_id, property_id, room_id, reservation_id, status, priority, due_at)
-           VALUES($1,$2,$3,$4,'ready','rush',now() + interval '2 hours')`,
+          `INSERT INTO housekeeping_tasks(organization_id, property_id, room_id, reservation_id, status, priority, due_at, inspection_required)
+           VALUES($1,$2,$3,$4,'ready','rush',now() + interval '2 hours',true)`,
           [scope.organizationId, scope.propertyId, roomId, reservationId],
         );
       }
