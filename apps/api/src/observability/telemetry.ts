@@ -44,7 +44,7 @@ export function sanitizeTelemetryMessage(value: string) {
 }
 export class BufferedExporter {
   private queue: ExportRecord[] = [];
-  private timer: number | null = null;
+  private timer: ReturnType<typeof setTimeout> | null = null;
   readonly captured: ExportRecord[] = [];
   constructor(
     private readonly options: {
