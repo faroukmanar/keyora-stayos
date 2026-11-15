@@ -247,6 +247,143 @@ export interface paths {
       };
     };
   };
+  "/v1/properties/{propertyId}/rooms/{roomId}": {
+    get: {
+      responses: {
+        "200": components['schemas']['Room'];
+        "401": components['schemas']['ApiError'];
+        "403": components['schemas']['ApiError'];
+        "404": components['schemas']['ApiError'];
+      };
+    };
+    patch: {
+      requestBody: { content: { 'application/json': components['schemas']['RoomStatusCommand'] } };
+      responses: {
+        "200": components['schemas']['Room'];
+        "400": components['schemas']['ApiError'];
+        "401": components['schemas']['ApiError'];
+        "403": components['schemas']['ApiError'];
+        "404": components['schemas']['ApiError'];
+        "409": components['schemas']['ApiError'];
+        "422": components['schemas']['ApiError'];
+      };
+    };
+  };
+  "/v1/properties/{propertyId}/rooms/bulk": {
+    patch: {
+      requestBody: { content: { 'application/json': components['schemas']['BulkRoomCommand'] } };
+      responses: {
+        "200": {
+
+    };
+        "400": components['schemas']['ApiError'];
+        "401": components['schemas']['ApiError'];
+        "403": components['schemas']['ApiError'];
+        "409": components['schemas']['ApiError'];
+        "422": components['schemas']['ApiError'];
+      };
+    };
+  };
+  "/v1/properties/{propertyId}/rooms/reorder": {
+    post: {
+      requestBody: { content: { 'application/json': components['schemas']['ReorderRoomsCommand'] } };
+      responses: {
+        "200": {
+
+    };
+        "400": components['schemas']['ApiError'];
+        "401": components['schemas']['ApiError'];
+        "403": components['schemas']['ApiError'];
+        "422": components['schemas']['ApiError'];
+      };
+    };
+  };
+  "/v1/properties/{propertyId}/reservations/{reservationId}": {
+    get: {
+      responses: {
+        "200": components['schemas']['Reservation'];
+        "401": components['schemas']['ApiError'];
+        "403": components['schemas']['ApiError'];
+        "404": components['schemas']['ApiError'];
+      };
+    };
+  };
+  "/v1/properties/{propertyId}/reservations/{reservationId}/transitions": {
+    post: {
+      requestBody: { content: { 'application/json': components['schemas']['ReservationTransitionCommand'] } };
+      responses: {
+        "200": components['schemas']['Reservation'];
+        "400": components['schemas']['ApiError'];
+        "401": components['schemas']['ApiError'];
+        "403": components['schemas']['ApiError'];
+        "404": components['schemas']['ApiError'];
+        "409": components['schemas']['ApiError'];
+      };
+    };
+  };
+  "/v1/properties/{propertyId}/guests": {
+    get: {
+      responses: {
+        "200": components['schemas']['GuestPage'];
+        "400": components['schemas']['ApiError'];
+        "401": components['schemas']['ApiError'];
+        "403": components['schemas']['ApiError'];
+      };
+    };
+    post: {
+      requestBody: { content: { 'application/json': components['schemas']['CreateGuestCommand'] } };
+      responses: {
+        "201": components['schemas']['Guest'];
+        "400": components['schemas']['ApiError'];
+        "401": components['schemas']['ApiError'];
+        "403": components['schemas']['ApiError'];
+        "422": components['schemas']['ApiError'];
+      };
+    };
+  };
+  "/v1/properties/{propertyId}/quotes": {
+    post: {
+      requestBody: { content: { 'application/json': components['schemas']['CreateQuoteCommand'] } };
+      responses: {
+        "201": components['schemas']['Quote'];
+        "400": components['schemas']['ApiError'];
+        "401": components['schemas']['ApiError'];
+        "403": components['schemas']['ApiError'];
+        "409": components['schemas']['ApiError'];
+        "422": components['schemas']['ApiError'];
+      };
+    };
+  };
+  "/v1/properties/{propertyId}/maintenance-blocks": {
+    get: {
+      responses: {
+        "200": (components['schemas']['MaintenanceBlock'])[];
+        "401": components['schemas']['ApiError'];
+        "403": components['schemas']['ApiError'];
+      };
+    };
+    post: {
+      requestBody: { content: { 'application/json': components['schemas']['CreateMaintenanceBlockCommand'] } };
+      responses: {
+        "201": components['schemas']['MaintenanceBlock'];
+        "400": components['schemas']['ApiError'];
+        "401": components['schemas']['ApiError'];
+        "403": components['schemas']['ApiError'];
+        "404": components['schemas']['ApiError'];
+        "409": components['schemas']['ApiError'];
+      };
+    };
+  };
+  "/v1/properties/{propertyId}/maintenance-blocks/{blockId}/release": {
+    post: {
+      responses: {
+        "200": components['schemas']['MaintenanceBlock'];
+        "401": components['schemas']['ApiError'];
+        "403": components['schemas']['ApiError'];
+        "404": components['schemas']['ApiError'];
+      };
+    };
+  };
 }
 
 export interface components {
@@ -293,6 +430,8 @@ export interface components {
       "total": components['schemas']['Money'];
       "version": number;
       "updatedAt": string;
+      "quoteId"?: string | null;
+      "ratePlanId"?: string | null;
     };
     "CreateReservationCommand": {
       "propertyId": string;
@@ -538,6 +677,117 @@ export interface components {
     "HousekeepingEscalationCommand": {
       "version": number;
       "reason": string;
+    };
+    "Guest": {
+      "id": string;
+      "displayName": string;
+      "email": string | null;
+      "phone": string | null;
+      "preferredLanguage"?: string | null;
+      "preferences"?: {
+
+    };
+      "vip": boolean;
+      "marketingOptIn"?: boolean;
+      "marketingOptInAt"?: string | null;
+      "analyticsOptIn"?: boolean;
+      "version": number;
+      "anonymizedAt"?: string | null;
+      "mergedIntoGuestId"?: string | null;
+      "createdAt"?: string;
+      "updatedAt"?: string;
+      "sensitiveFieldsMasked": boolean;
+      [key: string]: unknown;
+    };
+    "GuestPage": {
+      "data": (components['schemas']['Guest'])[];
+      "nextCursor": string | null;
+    };
+    "CreateGuestCommand": {
+      "displayName": string;
+      "email"?: string | null;
+      "phone"?: string | null;
+      "vip"?: boolean;
+    };
+    "CreateQuoteCommand": {
+      "roomId": string;
+      "checkIn": string;
+      "checkOut": string;
+      "adults": number;
+      "children"?: number;
+      "discountCode"?: string;
+    };
+    "Quote": {
+      "id": string;
+      "roomId": string;
+      "checkIn": string;
+      "checkOut": string;
+      "adults": number;
+      "children": number;
+      "total": components['schemas']['Money'];
+      "breakdown": {
+      "nights": ({
+      "date": string;
+      "amountMinor": number;
+      [key: string]: unknown;
+    })[];
+      "subtotalMinor": number;
+      "taxes": ({
+      "name": string;
+      "kind": string;
+      "amountMinor": number;
+      [key: string]: unknown;
+    })[];
+      "discount": {
+      "code": string;
+      "amountMinor": number;
+      [key: string]: unknown;
+    } | {
+      "code": string;
+      "amountMinor": number;
+      [key: string]: unknown;
+    };
+      "totalMinor": number;
+      "currency": string;
+      [key: string]: unknown;
+    };
+      "expiresAt": string;
+    };
+    "ReservationTransitionCommand": {
+      "version": number;
+      "target": "confirmed" | "checked-in" | "checked-out" | "cancelled" | "no-show";
+    };
+    "RoomStatusCommand": {
+      "version": number;
+      "status"?: "available" | "occupied" | "cleaning" | "maintenance";
+      "name"?: string;
+      "roomTypeId"?: string;
+    };
+    "BulkRoomCommand": {
+      "roomIds": (string)[];
+      "patch": {
+      "status"?: "available" | "occupied" | "cleaning" | "maintenance";
+      "sortOrder"?: number;
+    };
+    };
+    "ReorderRoomsCommand": {
+      "roomIds": (string)[];
+    };
+    "MaintenanceBlock": {
+      "id": string;
+      "roomId": string;
+      "reason": string;
+      "startsAt": string;
+      "endsAt": string;
+      "status": "active" | "released";
+      "createdAt": string;
+      "releasedAt": string | null;
+    };
+    "CreateMaintenanceBlockCommand": {
+      "roomId": string;
+      "reason": string;
+      "startsAt": string;
+      "endsAt": string;
     };
   };
 }
