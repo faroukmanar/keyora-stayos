@@ -20,7 +20,8 @@ export async function registerEventRoutes(app: FastifyInstance, dependencies: { 
     let cursor = cursorSchema.parse(request.headers['last-event-id'] ?? (request.query as { cursor?: unknown }).cursor);
     reply.hijack();
     // hijack() bypasses Fastify's serializer, so carry over CORS/security headers set by earlier hooks.
-    reply.raw.writeHead(200, { ...reply.getHeaders(), 'content-type': 'text/event-stream', 'cache-control': 'no-cache, no-transform', connection: 'keep-alive', 'x-accel-buffering': 'no' });
+    const inherited = Object.fromEntries(Object.entries(reply.getHeaders()).filter((entry): entry is [string, string | number | string[]] => entry[1] !== undefined));
+    reply.raw.writeHead(200, { ...inherited, 'content-type': 'text/event-stream', 'cache-control': 'no-cache, no-transform', connection: 'keep-alive', 'x-accel-buffering': 'no' });
     let closed = false;
     let sending = false;
     const timers: NodeJS.Timeout[] = [];
