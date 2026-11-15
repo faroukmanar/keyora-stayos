@@ -100,6 +100,11 @@ async function main() {
     assert.equal(passed.json().status, 'done');
     assert.equal(passed.json().inspections[0].result, 'passed');
     assert.ok(passed.json().completedAt);
+    const managerUser = await pool.query("SELECT id, display_name FROM users WHERE email='manager@demo.keyora.test'");
+    assert.equal(passed.json().lastChange.type, 'housekeeping.task.inspection_passed');
+    assert.equal(passed.json().lastChange.actorId, managerUser.rows[0].id);
+    assert.equal(passed.json().lastChange.actorName, managerUser.rows[0].display_name);
+    assert.ok(passed.json().lastChange.at);
     const roomAfterDone = await pool.query('SELECT status FROM rooms WHERE id=$1', [seedRoomId]);
     assert.equal(roomAfterDone.rows[0].status, 'available');
 

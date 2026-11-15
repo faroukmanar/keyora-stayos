@@ -6,7 +6,7 @@ import type { AuthService } from '../auth/auth-service';
 const paramsSchema = z.object({ propertyId: z.uuid() });
 const cursorSchema = z.coerce.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).default(0);
 
-/** Resumable SSE stream. Payloads contain domain-event metadata only, never guest PII. */
+/** Resumable SSE stream. Payloads contain domain-event metadata (including the staff actorId) only, never guest PII. */
 export async function registerEventRoutes(app: FastifyInstance, dependencies: { pool: Pool; auth: AuthService }) {
   app.get('/v1/properties/:propertyId/events', async (request, reply) => {
     const params = paramsSchema.parse(request.params);
@@ -24,7 +24,8 @@ export async function registerEventRoutes(app: FastifyInstance, dependencies: { 
       );
       for (const row of result.rows) {
         cursor = Number(row.sequence);
-        const data = JSON.stringify({ sequence: cursor, type: row.type, entityType: row.entity_type, entityId: row.entity_id, version: Number(row.version), occurredAt: new Date(row.occurred_at).toISOString() });
+        const actorId = typeof row.payload?.actorId === 'string' ? row.payload.actorId : null;
+        const data = JSON.stringify({ sequence: cursor, type: row.type, entityType: row.entity_type, entityId: row.entity_id, version: Number(row.version), actorId, occurredAt: new Date(row.occurred_at).toISOString() });
         reply.raw.write(`id: ${cursor}\nevent: domain\ndata: ${data}\n\n`);
       }
     };

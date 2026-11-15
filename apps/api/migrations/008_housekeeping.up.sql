@@ -60,3 +60,5 @@ BEGIN
 END $$;
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON housekeeping_checklist_items, housekeeping_inspections TO keyora_app;
+
+CREATE INDEX domain_events_entity_idx ON domain_events(organization_id, property_id, entity_type, entity_id, sequence DESC);

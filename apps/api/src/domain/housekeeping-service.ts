@@ -41,6 +41,12 @@ export class HousekeepingService {
       startedAt: row.started_at ? isoTimestamp(row.started_at) : null,
       completedAt: row.completed_at ? isoTimestamp(row.completed_at) : null,
       checklist: { total: Number(row.checklist_total ?? 0), completed: Number(row.checklist_completed ?? 0) },
+      lastChange: row.last_event_at ? {
+        type: String(row.last_event_type),
+        actorId: row.last_actor_id ? String(row.last_actor_id) : null,
+        actorName: row.last_actor_name ? String(row.last_actor_name) : null,
+        at: isoTimestamp(row.last_event_at),
+      } : null,
       version: Number(row.version),
       createdAt: isoTimestamp(row.created_at),
       updatedAt: isoTimestamp(row.updated_at),
@@ -50,10 +56,17 @@ export class HousekeepingService {
   private taskSelect = `
     SELECT ht.*, r.name AS room_name, u.display_name AS assignee_name,
       (SELECT count(*)::int FROM housekeeping_checklist_items c WHERE c.task_id=ht.id) AS checklist_total,
-      (SELECT count(*)::int FROM housekeeping_checklist_items c WHERE c.task_id=ht.id AND c.completed_at IS NOT NULL) AS checklist_completed
+      (SELECT count(*)::int FROM housekeeping_checklist_items c WHERE c.task_id=ht.id AND c.completed_at IS NOT NULL) AS checklist_completed,
+      le.type AS last_event_type, le.occurred_at AS last_event_at, la.id AS last_actor_id, la.display_name AS last_actor_name
     FROM housekeeping_tasks ht
     JOIN rooms r ON r.id=ht.room_id
-    LEFT JOIN users u ON u.id=ht.assignee_user_id`;
+    LEFT JOIN users u ON u.id=ht.assignee_user_id
+    LEFT JOIN LATERAL (
+      SELECT e.type, e.occurred_at, e.payload->>'actorId' AS actor_id FROM domain_events e
+      WHERE e.entity_type='housekeeping_task' AND e.entity_id=ht.id AND e.organization_id=ht.organization_id AND e.property_id=ht.property_id
+      ORDER BY e.sequence DESC LIMIT 1
+    ) le ON true
+    LEFT JOIN users la ON la.id::text=le.actor_id AND la.organization_id=ht.organization_id`;
 
   private checklistItem(row: TaskRow) {
     return {

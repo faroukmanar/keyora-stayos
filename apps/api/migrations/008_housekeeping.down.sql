@@ -1,3 +1,4 @@
+DROP INDEX IF EXISTS domain_events_entity_idx;
 DROP TABLE housekeeping_inspections;
 DROP TABLE housekeeping_checklist_items;
 
