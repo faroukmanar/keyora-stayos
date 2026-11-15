@@ -18,7 +18,8 @@ Native development uses `npm run ios` or `npm run android`. The project targets 
 - `npm run lint` — Expo ESLint rules
 - `npm run typecheck` — strict TypeScript validation
 - `npm test` — deterministic domain tests
-- `npm run check` — all gates in sequence
+- `npm run check` — fast static and unit gates
+- `npm run release:gate` — full local release gate with saved evidence (see docs/quality/release-gate.md)
 - `npm run api:smoke` — disposable API startup, probes, and graceful-shutdown smoke test
 - `npx expo export --platform web` — production web bundle smoke test
 
