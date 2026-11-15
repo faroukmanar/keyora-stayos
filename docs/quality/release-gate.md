@@ -24,7 +24,7 @@ Flags: `--skip-web`, `--native`, `--keep-db`. Ports: `KEYORA_GATE_PG_PORT`, `KEY
 
 ## Evidence
 
-Each run writes `.release-evidence/<sha12>-<timestamp>/` (git-ignored): one log per stage and `summary.json` with the commit, a dirty-tree flag, scope (web/native), Node version, platform, and per-stage status and duration. `.release-evidence/latest.json` points at the newest run.
+Each run writes `.release-evidence/<sha12>-<timestamp>/` (git-ignored): one log per stage and `summary.json` with the commit, a dirty flag (uncommitted changes to tracked files), scope (web/native), Node version, platform, and per-stage status and duration. `.release-evidence/latest.json` points at the newest run.
 
 ```sh
 npm run release:verify                      # HEAD must have a passing, clean-tree, web-inclusive run < 24h old

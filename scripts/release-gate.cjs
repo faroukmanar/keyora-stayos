@@ -24,7 +24,8 @@ const syntheticPassword = 'Local-Test-Only!2026';
 
 const git = (...gitArgs) => spawnSync('git', gitArgs, { cwd: root, encoding: 'utf8' }).stdout.trim();
 const sha = git('rev-parse', 'HEAD');
-const dirty = git('status', '--porcelain').length > 0;
+// Tracked changes only: untracked scratch files are not part of the build being certified.
+const dirty = git('status', '--porcelain', '--untracked-files=no').length > 0;
 const startedAt = new Date();
 const evidenceDir = path.join(root, '.release-evidence', `${sha.slice(0, 12)}-${startedAt.toISOString().replace(/[:.]/g, '-')}`);
 fs.mkdirSync(evidenceDir, { recursive: true });
