@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { PoolClient } from 'pg';
-import { DomainError, isoTimestamp, notFound, recordAudit, staleVersion, type TenantScope } from './pg';
+import { conflict, DomainError, isoTimestamp, notFound, recordAudit, staleVersion, type TenantScope } from './pg';
 import type { Actor } from '../auth/types';
 
 export type RoomInput = {
@@ -81,10 +81,19 @@ export class InventoryService {
     return this.getRoom(client, scope, roomId);
   }
 
+  private async assertRoomsReady(client: PoolClient, scope: TenantScope, roomIds: string[]) {
+    const open = await client.query(
+      "SELECT 1 FROM housekeeping_tasks WHERE room_id = ANY($1::uuid[]) AND organization_id=$2 AND property_id=$3 AND status <> 'done' LIMIT 1",
+      [roomIds, scope.organizationId, scope.propertyId],
+    );
+    if (open.rowCount) throw conflict('ROOM_NOT_READY', 'Finish the open housekeeping task before marking the room available.');
+  }
+
   async updateRoom(client: PoolClient, scope: TenantScope, actor: Actor, roomId: string, version: number, patch: RoomPatch, requestId: string) {
     if (patch.roomTypeId) await this.assertRoomType(client, scope, patch.roomTypeId);
     const current = await this.getRoom(client, scope, roomId);
     if (current.version !== version) throw staleVersion();
+    if (patch.status === 'available') await this.assertRoomsReady(client, scope, [roomId]);
     const next = {
       roomTypeId: patch.roomTypeId ?? current.roomTypeId,
       name: patch.name ?? current.name,
@@ -124,6 +133,7 @@ export class InventoryService {
   async bulkUpdate(client: PoolClient, scope: TenantScope, actor: Actor, roomIds: string[], patch: RoomPatch, requestId: string) {
     const rooms = await client.query('SELECT id FROM rooms WHERE id = ANY($1::uuid[]) AND organization_id=$2 AND property_id=$3 AND archived_at IS NULL', [roomIds, scope.organizationId, scope.propertyId]);
     if (rooms.rowCount !== new Set(roomIds).size) throw new DomainError(422, 'ROOM_INVALID', 'The selection contains a room outside this property.');
+    if (patch.status === 'available') await this.assertRoomsReady(client, scope, roomIds);
     await client.query(
       `UPDATE rooms SET status=COALESCE($4,status), sort_order=COALESCE($5,sort_order), version=version+1, updated_at=now()
        WHERE id = ANY($1::uuid[]) AND organization_id=$2 AND property_id=$3`,

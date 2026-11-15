@@ -137,6 +137,116 @@ export interface paths {
       };
     };
   };
+  "/v1/properties/{propertyId}/housekeeping/tasks": {
+    get: {
+      responses: {
+        "200": components['schemas']['HousekeepingTaskPage'];
+        "400": components['schemas']['ApiError'];
+        "401": components['schemas']['ApiError'];
+        "403": components['schemas']['ApiError'];
+      };
+    };
+    post: {
+      requestBody: { content: { 'application/json': components['schemas']['CreateHousekeepingTaskCommand'] } };
+      responses: {
+        "201": components['schemas']['HousekeepingTaskDetail'];
+        "400": components['schemas']['ApiError'];
+        "401": components['schemas']['ApiError'];
+        "403": components['schemas']['ApiError'];
+        "422": components['schemas']['ApiError'];
+      };
+    };
+  };
+  "/v1/properties/{propertyId}/housekeeping/tasks/{taskId}": {
+    get: {
+      responses: {
+        "200": components['schemas']['HousekeepingTaskDetail'];
+        "401": components['schemas']['ApiError'];
+        "403": components['schemas']['ApiError'];
+        "404": components['schemas']['ApiError'];
+      };
+    };
+  };
+  "/v1/properties/{propertyId}/housekeeping/tasks/{taskId}/assign": {
+    patch: {
+      requestBody: { content: { 'application/json': components['schemas']['AssignHousekeepingTaskCommand'] } };
+      responses: {
+        "200": components['schemas']['HousekeepingTaskDetail'];
+        "400": components['schemas']['ApiError'];
+        "401": components['schemas']['ApiError'];
+        "403": components['schemas']['ApiError'];
+        "404": components['schemas']['ApiError'];
+        "409": components['schemas']['ApiError'];
+        "422": components['schemas']['ApiError'];
+      };
+    };
+  };
+  "/v1/properties/{propertyId}/housekeeping/tasks/{taskId}/checklist": {
+    post: {
+      requestBody: { content: { 'application/json': components['schemas']['AddChecklistItemCommand'] } };
+      responses: {
+        "201": components['schemas']['HousekeepingChecklistItem'];
+        "400": components['schemas']['ApiError'];
+        "401": components['schemas']['ApiError'];
+        "403": components['schemas']['ApiError'];
+        "404": components['schemas']['ApiError'];
+        "409": components['schemas']['ApiError'];
+      };
+    };
+  };
+  "/v1/properties/{propertyId}/housekeeping/tasks/{taskId}/checklist/{itemId}": {
+    patch: {
+      requestBody: { content: { 'application/json': components['schemas']['ToggleChecklistItemCommand'] } };
+      responses: {
+        "200": components['schemas']['HousekeepingChecklistItem'];
+        "400": components['schemas']['ApiError'];
+        "401": components['schemas']['ApiError'];
+        "403": components['schemas']['ApiError'];
+        "404": components['schemas']['ApiError'];
+        "409": components['schemas']['ApiError'];
+      };
+    };
+  };
+  "/v1/properties/{propertyId}/housekeeping/tasks/{taskId}/transitions": {
+    post: {
+      requestBody: { content: { 'application/json': components['schemas']['HousekeepingTransitionCommand'] } };
+      responses: {
+        "200": components['schemas']['HousekeepingTaskDetail'];
+        "400": components['schemas']['ApiError'];
+        "401": components['schemas']['ApiError'];
+        "403": components['schemas']['ApiError'];
+        "404": components['schemas']['ApiError'];
+        "409": components['schemas']['ApiError'];
+        "422": components['schemas']['ApiError'];
+      };
+    };
+  };
+  "/v1/properties/{propertyId}/housekeeping/tasks/{taskId}/inspections": {
+    post: {
+      requestBody: { content: { 'application/json': components['schemas']['HousekeepingInspectionCommand'] } };
+      responses: {
+        "200": components['schemas']['HousekeepingTaskDetail'];
+        "400": components['schemas']['ApiError'];
+        "401": components['schemas']['ApiError'];
+        "403": components['schemas']['ApiError'];
+        "404": components['schemas']['ApiError'];
+        "409": components['schemas']['ApiError'];
+      };
+    };
+  };
+  "/v1/properties/{propertyId}/housekeeping/tasks/{taskId}/escalate": {
+    post: {
+      requestBody: { content: { 'application/json': components['schemas']['HousekeepingEscalationCommand'] } };
+      responses: {
+        "200": components['schemas']['HousekeepingTaskDetail'];
+        "400": components['schemas']['ApiError'];
+        "401": components['schemas']['ApiError'];
+        "403": components['schemas']['ApiError'];
+        "404": components['schemas']['ApiError'];
+        "409": components['schemas']['ApiError'];
+      };
+    };
+  };
 }
 
 export interface components {
@@ -290,6 +400,144 @@ export interface components {
       "id": string;
       "messageId": string;
       "status": "delivered" | "bounced" | "failed";
+    };
+    "HousekeepingTask": {
+      "id": string;
+      "roomId": string;
+      "roomName": string | null;
+      "reservationId": string | null;
+      "assignee": {
+      "id": string;
+      "displayName": string | null;
+    } | {
+      "id": string;
+      "displayName": string | null;
+    };
+      "status": "ready" | "in-progress" | "blocked" | "inspection" | "done";
+      "priority": "normal" | "rush";
+      "dueAt": string | null;
+      "overdue": boolean;
+      "inspectionRequired": boolean;
+      "blockedReason": string | null;
+      "blockedAt": string | null;
+      "startedAt": string | null;
+      "completedAt": string | null;
+      "checklist": {
+      "total": number;
+      "completed": number;
+    };
+      "lastChange": {
+      "type": string;
+      "actorId": string | null;
+      "actorName": string | null;
+      "at": string;
+    } | {
+      "type": string;
+      "actorId": string | null;
+      "actorName": string | null;
+      "at": string;
+    };
+      "version": number;
+      "createdAt": string;
+      "updatedAt": string;
+    };
+    "HousekeepingChecklistItem": {
+      "id": string;
+      "label": string;
+      "required": boolean;
+      "sortOrder": number;
+      "completedAt": string | null;
+      "completedBy": string | null;
+    };
+    "HousekeepingInspection": {
+      "id": string;
+      "result": "passed" | "failed";
+      "notes": string | null;
+      "inspectorUserId": string | null;
+      "createdAt": string;
+    };
+    "HousekeepingTaskDetail": {
+      "id": string;
+      "roomId": string;
+      "roomName": string | null;
+      "reservationId": string | null;
+      "assignee": {
+      "id": string;
+      "displayName": string | null;
+    } | {
+      "id": string;
+      "displayName": string | null;
+    };
+      "status": "ready" | "in-progress" | "blocked" | "inspection" | "done";
+      "priority": "normal" | "rush";
+      "dueAt": string | null;
+      "overdue": boolean;
+      "inspectionRequired": boolean;
+      "blockedReason": string | null;
+      "blockedAt": string | null;
+      "startedAt": string | null;
+      "completedAt": string | null;
+      "checklist": {
+      "total": number;
+      "completed": number;
+    };
+      "lastChange": {
+      "type": string;
+      "actorId": string | null;
+      "actorName": string | null;
+      "at": string;
+    } | {
+      "type": string;
+      "actorId": string | null;
+      "actorName": string | null;
+      "at": string;
+    };
+      "version": number;
+      "createdAt": string;
+      "updatedAt": string;
+      "checklistItems": (components['schemas']['HousekeepingChecklistItem'])[];
+      "inspections": (components['schemas']['HousekeepingInspection'])[];
+      "inspection"?: {
+      "id": string;
+      "result": "passed" | "failed";
+      "createdAt": string;
+    };
+    };
+    "HousekeepingTaskPage": {
+      "data": (components['schemas']['HousekeepingTask'])[];
+      "nextCursor": string | null;
+    };
+    "CreateHousekeepingTaskCommand": {
+      "roomId": string;
+      "priority"?: "normal" | "rush";
+      "dueAt"?: string | null;
+      "assigneeUserId"?: string | null;
+      "inspectionRequired"?: boolean;
+    };
+    "AssignHousekeepingTaskCommand": {
+      "version": number;
+      "assigneeUserId": string | null;
+    };
+    "AddChecklistItemCommand": {
+      "label": string;
+      "required"?: boolean;
+    };
+    "ToggleChecklistItemCommand": {
+      "completed": boolean;
+    };
+    "HousekeepingTransitionCommand": {
+      "version": number;
+      "target": "ready" | "in-progress" | "blocked" | "inspection" | "done";
+      "reason"?: string;
+    };
+    "HousekeepingInspectionCommand": {
+      "version": number;
+      "result": "passed" | "failed";
+      "notes"?: string | null;
+    };
+    "HousekeepingEscalationCommand": {
+      "version": number;
+      "reason": string;
     };
   };
 }

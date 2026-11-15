@@ -15,6 +15,22 @@ const tokenStore = () => {
 };
 
 describe('HttpClient', () => {
+  it('calls the global fetch unbound so browsers do not reject it', async () => {
+    const original = globalThis.fetch;
+    const strictFetch = jest.fn(function (this: unknown) {
+      if (this !== undefined && this !== globalThis) throw new TypeError('Illegal invocation');
+      return Promise.resolve(response(200, { value: 'safe' }));
+    });
+    globalThis.fetch = strictFetch as unknown as typeof fetch;
+    try {
+      const client = new HttpClient({ baseUrl: 'https://api.example.test', platform: 'web', uuid: uuidFactory });
+      await expect(client.request({ path: '/v1/value', schema: z.object({ value: z.literal('safe') }) })).resolves.toEqual({ value: 'safe' });
+      expect(strictFetch).toHaveBeenCalledTimes(1);
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
   it('validates successful responses at runtime', async () => {
     const client = new HttpClient({ baseUrl: 'https://api.example.test', platform: 'native', uuid: uuidFactory, fetcher: jest.fn(async () => response(200, { value: 'safe' })) });
     await expect(client.request({ path: '/v1/value', schema: z.object({ value: z.literal('safe') }) })).resolves.toEqual({ value: 'safe' });

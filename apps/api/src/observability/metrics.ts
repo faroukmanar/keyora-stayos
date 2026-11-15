@@ -11,7 +11,7 @@ export class MetricsService {
   readonly httpErrors: Counter;
   readonly bookingConflicts: Counter;
   readonly webhookLag: Histogram;
-  readonly taskSla: Gauge;
+  readonly taskSla: Gauge<"priority">;
   readonly droppedTelemetry: Counter;
   constructor(labels: { environment: string; version: string }) {
     this.registry.setDefaultLabels({ service: "keyora_api", ...labels });

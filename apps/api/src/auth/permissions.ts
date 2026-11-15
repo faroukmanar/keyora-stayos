@@ -2,7 +2,7 @@ import type { AppRole } from '../../../../packages/contracts/src';
 
 export const permissions = [
   'property:manage', 'staff:manage', 'room:read', 'room:write', 'reservation:read', 'reservation:write',
-  'reservation:check-in', 'guest:read', 'guest:write', 'guest:sensitive', 'guest:export', 'housekeeping:read', 'housekeeping:write',
+  'reservation:check-in', 'guest:read', 'guest:write', 'guest:sensitive', 'guest:export', 'housekeeping:read', 'housekeeping:write', 'housekeeping:inspect',
   'payment:read', 'payment:refund', 'audit:read',
 ] as const;
 export type Permission = typeof permissions[number];

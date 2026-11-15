@@ -49,3 +49,8 @@ example
 /android
 .local-pg-*/
 .local-pg-*.log
+
+# playwright
+test-results/
+playwright-report/
+dist-e2e/
