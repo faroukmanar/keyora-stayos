@@ -1,0 +1,48 @@
+appId: com.faroukmanar.keyora
+name: Front desk books a new guest, checks in, and checks out
+---
+- runScript:
+    file: scripts/ensure-rate-plan.js
+    env:
+      MAESTRO_PASSWORD: ${MAESTRO_PASSWORD}
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: frontdesk@demo.keyora.test
+- tapOn: "Rooms"
+- extendedWaitUntil:
+    visible: "Synthetic Room 101"
+    timeout: 30000
+- tapOn: "Open Synthetic Room 101"
+- scrollUntilVisible:
+    element: "Create reservation"
+- tapOn: "Create reservation"
+- tapOn: "Check-in"
+- eraseText
+- inputText: "2041-04-10"
+- tapOn: "Check-out"
+- eraseText
+- inputText: "2041-04-12"
+- hideKeyboard
+- tapOn: "New guest"
+- tapOn: "Guest name"
+- inputText: "Maestro Guest"
+- hideKeyboard
+- scrollUntilVisible:
+    element: "Get price"
+- tapOn: "Get price"
+- extendedWaitUntil:
+    visible: "SIGNED QUOTE · VALID 15 MIN"
+    timeout: 15000
+- tapOn: "Confirm reservation"
+- extendedWaitUntil:
+    visible: "Check guest in"
+    timeout: 15000
+- tapOn: "Check guest in"
+- extendedWaitUntil:
+    visible: "Check guest out"
+    timeout: 15000
+- tapOn: "Check guest out"
+- extendedWaitUntil:
+    visible: "Room turn sent to housekeeping."
+    timeout: 15000

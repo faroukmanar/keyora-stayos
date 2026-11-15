@@ -41,7 +41,11 @@
     "test": "jest --runInBand",
     "contract:generate": "node scripts/generate-contract.cjs",
     "contract:validate": "node scripts/generate-contract.cjs --check && node scripts/validate-contract.cjs",
-    "check": "npm run lint && npm run typecheck && npm run contract:validate && npm run test && npm run api:test"
+    "check": "npm run lint && npm run typecheck && npm run contract:validate && npm run test && npm run api:test",
+    "release:gate": "node scripts/release-gate.cjs",
+    "release:verify": "node scripts/verify-release-evidence.cjs",
+    "hooks:install": "git config core.hooksPath scripts/git-hooks",
+    "native:e2e": "maestro test .maestro"
   },
   "dependencies": {
     "@expo-google-fonts/dm-sans": "^0.4.2",

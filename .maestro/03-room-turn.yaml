@@ -1,0 +1,24 @@
+appId: com.faroukmanar.keyora
+name: Housekeeping completes the checkout room turn
+---
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: housekeeping@demo.keyora.test
+- tapOn: "Service"
+- extendedWaitUntil:
+    visible: "Synthetic Room 101, Ready to start.*"
+    timeout: 30000
+- tapOn: "Start turn"
+- tapOn: "Synthetic Room 101, In progress.*"
+- repeat:
+    times: 5
+    commands:
+      - tapOn:
+          text: "^(Strip and replace linens|Clean bathroom|Restock amenities|Vacuum and dust|Final visual check)$"
+          index: 0
+          enabled: true
+- tapOn: "Request inspection"
+- extendedWaitUntil:
+    visible: "Synthetic Room 101, Awaiting inspection.*"
+    timeout: 15000
