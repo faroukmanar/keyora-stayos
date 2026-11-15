@@ -1,16 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import type { Reservation, Room } from '../../../../packages/contracts/src';
 import { useAuthStore } from '@/features/auth/store/auth-store';
-import { createRepositories } from '@/services/repositories/factory';
-import { queryKeys, type TenantScope } from '@/services/repositories/query-keys';
-
-const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4100';
-const repositories = createRepositories({ apiUrl });
-
-function scopeFor(user: ReturnType<typeof useAuthStore.getState>['user']): TenantScope | null {
-  if (!user?.organizationId || !user.propertyId) return null;
-  return { organizationId: user.organizationId, propertyId: user.propertyId };
-}
+import { repositories, scopeFor } from '@/services/repositories/live';
+import { queryKeys } from '@/services/repositories/query-keys';
 
 export function useLiveRooms() {
   const scope = scopeFor(useAuthStore((state) => state.user));
