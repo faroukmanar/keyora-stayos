@@ -53,3 +53,4 @@ example
 # playwright
 test-results/
 playwright-report/
+dist-e2e/

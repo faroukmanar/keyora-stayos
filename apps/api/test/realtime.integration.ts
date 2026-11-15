@@ -120,6 +120,11 @@ async function main() {
     await resumed.waitFor((frames) => frames.some((item) => item.id === String(payload.sequence)), 'resume from Last-Event-ID');
     assert.equal(resumed.frames.some((item) => Number(item.id) < payload.sequence), false, 'resume does not replay older events');
 
+    const tail = await openStream(eventsUrl, { authorization: `Bearer ${owner.accessToken}` });
+    streams.push(tail);
+    await new Promise((resolve) => setTimeout(resolve, 1_500));
+    assert.equal(tail.frames.filter((item) => item.event === 'domain').length, 0, 'new subscribers do not replay history');
+
     const logout = await app.inject({ method: 'POST', url: '/v1/auth/logout', payload: { refreshToken: housekeeping.refreshToken } });
     assert.equal(logout.statusCode, 204, logout.body);
     await stream.waitFor((frames) => frames.some((item) => item.event === 'session-expired'), 'session-expired after logout');

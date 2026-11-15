@@ -57,7 +57,7 @@ function TaskCard({ task, role, expanded, onToggle }: { task: HousekeepingTask; 
     void run(selected);
   };
   return <View style={styles.card}>
-    <Pressable accessibilityRole="button" accessibilityState={{ expanded }} accessibilityLabel={`${task.roomName ?? 'Room'}, ${statusLabel[task.status]}. ${expanded ? 'Hide' : 'Show'} checklist`} onPress={onToggle} style={styles.head}>
+    <Pressable accessibilityRole="button" aria-expanded={expanded} accessibilityLabel={`${task.roomName ?? 'Room'}, ${statusLabel[task.status]}. ${expanded ? 'Hide' : 'Show'} checklist`} onPress={onToggle} style={styles.head}>
       <View style={styles.grow}>
         <View style={styles.title}>
           <AppText variant="title">{task.roomName ?? 'Room'}</AppText>
@@ -99,7 +99,7 @@ function Checklist({ taskId, editable }: { taskId: string; editable: boolean }) 
     {(detail.data?.checklistItems ?? []).map((item) => {
       const done = item.completedAt !== null;
       const Icon = done ? CheckSquare : Square;
-      return <Pressable key={item.id} accessibilityRole="checkbox" accessibilityState={{ checked: done, disabled: !editable }} disabled={!editable || toggle.isPending} onPress={() => toggle.mutate({ taskId, itemId: item.id, completed: !done })} style={({ pressed }) => [styles.checkItem, pressed && styles.pressed]}>
+      return <Pressable key={item.id} role="checkbox" aria-checked={done} aria-disabled={!editable} disabled={!editable || toggle.isPending} onPress={() => toggle.mutate({ taskId, itemId: item.id, completed: !done })} style={({ pressed }) => [styles.checkItem, pressed && styles.pressed]}>
         <Icon size={20} color={done ? colors.success : colors.textMuted} />
         <AppText style={[styles.grow, done && styles.checkDone]}>{item.label}{item.required ? '' : ' (optional)'}</AppText>
       </Pressable>;

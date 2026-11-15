@@ -5,7 +5,7 @@ import type { AuthService } from '../auth/auth-service';
 import { withActor } from '../domain/pg';
 
 const paramsSchema = z.object({ propertyId: z.uuid() });
-const cursorSchema = z.coerce.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).default(0);
+const cursorSchema = z.coerce.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).optional();
 export const SESSION_RECHECK_MS = 30_000;
 
 /** Resumable SSE stream. Payloads contain domain-event metadata (including the staff actorId) only, never guest PII. */
@@ -17,7 +17,9 @@ export async function registerEventRoutes(app: FastifyInstance, dependencies: { 
     const accessToken = decodeURIComponent(token);
     const actor = await dependencies.auth.authenticate(accessToken);
     if (actor.propertyId !== params.propertyId) return reply.status(403).send({ error: { code: 'FORBIDDEN', message: 'Property access is denied.', requestId: request.id } });
-    let cursor = cursorSchema.parse(request.headers['last-event-id'] ?? (request.query as { cursor?: unknown }).cursor);
+    const requested = cursorSchema.parse(request.headers['last-event-id'] ?? (request.query as { cursor?: unknown }).cursor);
+    // New subscribers start at the tail; only an explicit cursor/Last-Event-ID replays missed events.
+    let cursor = requested ?? await withActor(dependencies.pool, actor, async (client) => Number((await client.query('SELECT COALESCE(max(sequence), 0) AS sequence FROM domain_events WHERE organization_id=$1 AND property_id=$2', [actor.organizationId, actor.propertyId])).rows[0].sequence));
     reply.hijack();
     // hijack() bypasses Fastify's serializer, so carry over CORS/security headers set by earlier hooks.
     const inherited = Object.fromEntries(Object.entries(reply.getHeaders()).filter((entry): entry is [string, string | number | string[]] => entry[1] !== undefined));
