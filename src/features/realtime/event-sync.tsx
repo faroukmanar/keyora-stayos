@@ -33,8 +33,8 @@ export function EventSync() {
       const refreshed = await fetch(`${apiUrl}/v1/auth/refresh`, { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: JSON.stringify({ clientType: 'web' }) }).then((response) => response.ok, () => null);
       if (disposed) return;
       if (refreshed === false) { signOut(); return; }
-      const delay = Math.min(maxBackoffMs, 1_000 * 2 ** attempts++);
-      retry = setTimeout(connect, refreshed ? 0 : delay);
+      // Always back off: a stream can fail for reasons a refresh does not fix (network, CORS, proxy).
+      retry = setTimeout(connect, Math.min(maxBackoffMs, 1_000 * 2 ** attempts++));
     };
     const connect = () => {
       if (disposed) return;

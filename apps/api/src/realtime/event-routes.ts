@@ -19,7 +19,8 @@ export async function registerEventRoutes(app: FastifyInstance, dependencies: { 
     if (actor.propertyId !== params.propertyId) return reply.status(403).send({ error: { code: 'FORBIDDEN', message: 'Property access is denied.', requestId: request.id } });
     let cursor = cursorSchema.parse(request.headers['last-event-id'] ?? (request.query as { cursor?: unknown }).cursor);
     reply.hijack();
-    reply.raw.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache, no-transform', connection: 'keep-alive', 'x-accel-buffering': 'no' });
+    // hijack() bypasses Fastify's serializer, so carry over CORS/security headers set by earlier hooks.
+    reply.raw.writeHead(200, { ...reply.getHeaders(), 'content-type': 'text/event-stream', 'cache-control': 'no-cache, no-transform', connection: 'keep-alive', 'x-accel-buffering': 'no' });
     let closed = false;
     let sending = false;
     const timers: NodeJS.Timeout[] = [];

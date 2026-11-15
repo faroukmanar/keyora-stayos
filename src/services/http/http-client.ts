@@ -40,7 +40,8 @@ export class HttpClient {
   }
 
   private get platform() { return this.options.platform ?? (Platform.OS === 'web' ? 'web' : 'native'); }
-  private get fetcher() { return this.options.fetcher ?? fetch; }
+  // Browsers throw "Illegal invocation" when fetch is called as a method of another object.
+  private get fetcher(): Fetcher { return this.options.fetcher ?? ((input, init) => globalThis.fetch(input, init)); }
   private get tokenStore() { return this.options.tokenStore ?? (this.platform === 'web' ? webTokenStore : nativeTokenStore); }
   private createUuid() { return (this.options.uuid ?? Crypto.randomUUID)(); }
   setAccessToken(token: string | null) { this.accessToken = token; }

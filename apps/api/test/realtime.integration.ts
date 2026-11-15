@@ -68,7 +68,8 @@ async function main() {
   if (previousPassword === undefined) delete process.env.KEYORA_MOCK_PASSWORD; else process.env.KEYORA_MOCK_PASSWORD = previousPassword;
 
   const pool = new pg.Pool({ connectionString, max: 8 });
-  const config = loadConfig({ KEYORA_PROFILE: 'test', DATABASE_MODE: 'required', DATABASE_URL: connectionString, AUTH_RATE_LIMIT_MAX: '100' });
+  const webOrigin = 'http://localhost:19137';
+  const config = loadConfig({ KEYORA_PROFILE: 'test', DATABASE_MODE: 'required', DATABASE_URL: connectionString, AUTH_RATE_LIMIT_MAX: '100', CORS_ORIGINS: webOrigin });
   const auth = await AuthService.create({ repository: new PgAuthRepository(pool), accessTokenSecret: config.accessTokenSecret, mfaKey: config.mfaEncryptionKey });
   const app = await buildApp(config, { auth, pool, realtimeSessionRecheckMs: 200 });
   await app.listen({ host: '127.0.0.1', port: 0 });
@@ -96,6 +97,12 @@ async function main() {
     streams.push(stream);
     assert.equal(stream.response.status, 200);
     assert.match(stream.response.headers.get('content-type') ?? '', /text\/event-stream/);
+
+    // Browsers reject the stream without CORS headers, even though hijack() skips Fastify's reply pipeline.
+    const browserStream = await openStream(`${eventsUrl}?cursor=${baseline.rows[0].sequence}`, { authorization: `Bearer ${owner.accessToken}`, origin: webOrigin });
+    streams.push(browserStream);
+    assert.equal(browserStream.response.headers.get('access-control-allow-origin'), webOrigin);
+    assert.equal(browserStream.response.headers.get('access-control-allow-credentials'), 'true');
 
     const created = await app.inject({ method: 'POST', url: `/v1/properties/${propertyId}/housekeeping/tasks`, headers: { authorization: `Bearer ${owner.accessToken}`, 'idempotency-key': randomUUID() }, payload: { roomId: seedRoomId } });
     assert.equal(created.statusCode, 201, created.body);
