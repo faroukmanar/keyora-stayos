@@ -1,6 +1,9 @@
 import type { Pool, PoolClient } from 'pg';
 import type { Actor, AuthRepository, AuthUser, NewSession, SessionRecord } from './types';
 
+/** How long a just-rotated refresh token may be replayed to recover from a lost response. */
+export const REFRESH_RETRY_GRACE_MS = 30_000;
+
 type Row = Record<string, unknown>;
 const invalidCredentials = () => Object.assign(new Error('Invalid or expired session.'), { statusCode: 401, code: 'INVALID_SESSION' });
 
@@ -92,10 +95,21 @@ export class PgAuthRepository implements AuthRepository {
         FROM auth_sessions s JOIN users u ON u.id = s.user_id AND u.organization_id = s.organization_id
         WHERE s.refresh_token_hash = $1 FOR UPDATE OF s`, [refreshHash]);
       if (!currentResult.rowCount) return null;
-      const current = currentResult.rows[0];
+      let current = currentResult.rows[0];
       if (current.revoked_at) {
-        await client.query("UPDATE auth_sessions SET revoked_at = COALESCE(revoked_at, now()), revoke_reason = COALESCE(revoke_reason, 'refresh-reuse') WHERE family_id = $1", [current.family_id]);
-        return null;
+        // A client whose refresh response was lost (mobile network, page unload) replays the token it
+        // still holds. Inside a short grace window, while the successor has not itself been rotated,
+        // re-issue from the successor instead of treating it as theft. Anything else is reuse.
+        const successor = current.revoke_reason === 'rotated' && current.replaced_by_session_id && new Date(current.revoked_at).getTime() > Date.now() - REFRESH_RETRY_GRACE_MS
+          ? (await client.query(`SELECT s.*, u.password_version, u.display_name, u.status
+              FROM auth_sessions s JOIN users u ON u.id = s.user_id AND u.organization_id = s.organization_id
+              WHERE s.id = $1 AND s.family_id = $2 FOR UPDATE OF s`, [current.replaced_by_session_id, current.family_id])).rows[0]
+          : undefined;
+        if (!successor || successor.revoked_at) {
+          await client.query("UPDATE auth_sessions SET revoked_at = COALESCE(revoked_at, now()), revoke_reason = COALESCE(revoke_reason, 'refresh-reuse') WHERE family_id = $1", [current.family_id]);
+          return null;
+        }
+        current = successor;
       }
       if (new Date(current.expires_at) <= new Date() || current.status !== 'active') return null;
       const next = await client.query(`INSERT INTO auth_sessions(family_id, organization_id, property_id, user_id, role, refresh_token_hash, client_type, device_name, ip_hash, user_agent_hash, expires_at)
