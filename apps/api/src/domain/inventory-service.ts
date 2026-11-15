@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { PoolClient } from 'pg';
-import { conflict, DomainError, isoTimestamp, notFound, recordAudit, staleVersion, type TenantScope } from './pg';
+import { conflict, DomainError, emitEvent, isoTimestamp, notFound, recordAudit, staleVersion, type TenantScope } from './pg';
 import type { Actor } from '../auth/types';
 
 export type RoomInput = {
@@ -218,8 +218,10 @@ export class InventoryService {
       [scope.organizationId, scope.propertyId, input.roomId, input.reason, input.startsAt, input.endsAt, actor.id],
     );
     await client.query("UPDATE rooms SET status='maintenance', version=version+1, updated_at=now() WHERE id=$1", [input.roomId]);
-    await recordAudit(client, { scope, actor, category: 'room', action: 'room.maintenance_blocked', entityType: 'maintenance_block', entityId: String(result.rows[0].id), requestId, metadata: { roomId: input.roomId } });
-    return { id: String(result.rows[0].id), roomId: input.roomId, reason: input.reason, startsAt: input.startsAt, endsAt: input.endsAt, status: 'active' as const };
+    const blockId = String(result.rows[0].id);
+    await emitEvent(client, scope, { type: 'maintenance.blocked', entityType: 'maintenance_block', entityId: blockId, payload: { roomId: input.roomId, actorId: actor.id, at: new Date().toISOString() } });
+    await recordAudit(client, { scope, actor, category: 'room', action: 'room.maintenance_blocked', entityType: 'maintenance_block', entityId: blockId, requestId, metadata: { roomId: input.roomId } });
+    return this.getMaintenanceBlock(client, scope, blockId);
   }
 
   async releaseMaintenanceBlock(client: PoolClient, scope: TenantScope, actor: Actor, blockId: string, requestId: string) {
@@ -230,14 +232,31 @@ export class InventoryService {
     if (!result.rowCount) throw notFound('Maintenance block');
     const roomId = String(result.rows[0].room_id);
     const remaining = await client.query("SELECT 1 FROM maintenance_blocks WHERE room_id=$1 AND status='active'", [roomId]);
-    if (!remaining.rowCount) await client.query("UPDATE rooms SET status='available', version=version+1, updated_at=now() WHERE id=$1 AND status='maintenance'", [roomId]);
+    if (!remaining.rowCount) {
+      // A room with an open housekeeping task returns to cleaning so readiness still flows through the task.
+      const openTask = await client.query("SELECT 1 FROM housekeeping_tasks WHERE room_id=$1 AND organization_id=$2 AND property_id=$3 AND status <> 'done' LIMIT 1", [roomId, scope.organizationId, scope.propertyId]);
+      const occupied = await client.query("SELECT 1 FROM reservations WHERE room_id=$1 AND organization_id=$2 AND property_id=$3 AND status='checked-in' LIMIT 1", [roomId, scope.organizationId, scope.propertyId]);
+      const next = occupied.rowCount ? 'occupied' : openTask.rowCount ? 'cleaning' : 'available';
+      await client.query("UPDATE rooms SET status=$2, version=version+1, updated_at=now() WHERE id=$1 AND status='maintenance'", [roomId, next]);
+    }
+    await emitEvent(client, scope, { type: 'maintenance.released', entityType: 'maintenance_block', entityId: blockId, payload: { roomId, actorId: actor.id, at: new Date().toISOString() } });
     await recordAudit(client, { scope, actor, category: 'room', action: 'room.maintenance_released', entityType: 'maintenance_block', entityId: blockId, requestId, metadata: { roomId } });
-    return { id: blockId, roomId, status: 'released' as const };
+    return this.getMaintenanceBlock(client, scope, blockId);
+  }
+
+  private maintenanceFrom(row: Record<string, unknown>) {
+    return { id: String(row.id), roomId: String(row.room_id), reason: String(row.reason), startsAt: isoTimestamp(row.starts_at), endsAt: isoTimestamp(row.ends_at), status: String(row.status), createdAt: isoTimestamp(row.created_at), releasedAt: row.released_at ? isoTimestamp(row.released_at) : null };
+  }
+
+  private async getMaintenanceBlock(client: PoolClient, scope: TenantScope, blockId: string) {
+    const result = await client.query('SELECT id, room_id, reason, starts_at, ends_at, status, created_at, released_at FROM maintenance_blocks WHERE id=$1 AND organization_id=$2 AND property_id=$3', [blockId, scope.organizationId, scope.propertyId]);
+    if (!result.rowCount) throw notFound('Maintenance block');
+    return this.maintenanceFrom(result.rows[0]);
   }
 
   async listMaintenanceBlocks(client: PoolClient, scope: TenantScope) {
     const result = await client.query('SELECT id, room_id, reason, starts_at, ends_at, status, created_at, released_at FROM maintenance_blocks WHERE organization_id=$1 AND property_id=$2 ORDER BY created_at DESC LIMIT 200', [scope.organizationId, scope.propertyId]);
-    return result.rows.map((row) => ({ id: String(row.id), roomId: String(row.room_id), reason: String(row.reason), startsAt: isoTimestamp(row.starts_at), endsAt: isoTimestamp(row.ends_at), status: String(row.status), createdAt: isoTimestamp(row.created_at), releasedAt: row.released_at ? isoTimestamp(row.released_at) : null }));
+    return result.rows.map((row) => this.maintenanceFrom(row));
   }
 
   async listRoomTypes(client: PoolClient, scope: TenantScope) {

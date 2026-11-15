@@ -55,12 +55,93 @@ export const reservationSchema = z.object({
   children: z.number().int().min(0).max(50),
   status: reservationStatusSchema,
   total: moneySchema,
+  quoteId: idSchema.nullable().optional(),
+  ratePlanId: idSchema.nullable().optional(),
   version: z.number().int().positive(),
   updatedAt: z.string().datetime({ offset: true }),
 }).strict().refine((value) => value.checkOut > value.checkIn, {
   message: 'checkOut must be after checkIn',
   path: ['checkOut'],
 });
+
+export const reservationTransitionCommandSchema = z.object({
+  version: z.number().int().positive(),
+  target: reservationStatusSchema,
+}).strict();
+
+export const guestSchema = z.object({
+  id: idSchema,
+  displayName: z.string().min(1).max(160),
+  email: z.string().max(254).nullable(),
+  phone: z.string().max(40).nullable(),
+  preferredLanguage: z.string().nullable(),
+  preferences: z.record(z.string(), z.unknown()),
+  vip: z.boolean(),
+  marketingOptIn: z.boolean(),
+  marketingOptInAt: z.string().datetime({ offset: true }).nullable(),
+  analyticsOptIn: z.boolean(),
+  version: z.number().int().positive(),
+  anonymizedAt: z.string().datetime({ offset: true }).nullable(),
+  mergedIntoGuestId: idSchema.nullable(),
+  createdAt: z.string().datetime({ offset: true }),
+  updatedAt: z.string().datetime({ offset: true }),
+  sensitiveFieldsMasked: z.boolean(),
+}).passthrough();
+
+export const createGuestCommandSchema = z.object({
+  displayName: z.string().trim().min(1).max(160),
+  email: z.string().trim().email().max(254).nullable().optional(),
+  phone: z.string().trim().regex(/^\+?[0-9][0-9 ()\-]{6,24}$/, 'Enter a valid phone number.').nullable().optional(),
+  vip: z.boolean().optional(),
+}).strict();
+
+export const createQuoteCommandSchema = z.object({
+  roomId: idSchema,
+  checkIn: isoDateSchema,
+  checkOut: isoDateSchema,
+  adults: z.number().int().min(1).max(50),
+  children: z.number().int().min(0).max(50).default(0),
+  discountCode: z.string().regex(/^[A-Z0-9-]{3,32}$/).optional(),
+}).strict().refine((value) => value.checkOut > value.checkIn, { message: 'checkOut must be after checkIn', path: ['checkOut'] });
+
+export const quoteSchema = z.object({
+  id: idSchema,
+  roomId: idSchema,
+  checkIn: isoDateSchema,
+  checkOut: isoDateSchema,
+  adults: z.number().int(),
+  children: z.number().int(),
+  total: moneySchema,
+  breakdown: z.object({
+    nights: z.array(z.object({ date: isoDateSchema, amountMinor: z.number().int() }).passthrough()),
+    subtotalMinor: z.number().int(),
+    taxes: z.array(z.object({ name: z.string(), kind: z.string(), amountMinor: z.number().int() }).passthrough()),
+    discount: z.object({ code: z.string(), amountMinor: z.number().int() }).passthrough().nullable(),
+    totalMinor: z.number().int(),
+    currency: currencySchema,
+  }).passthrough(),
+  expiresAt: z.string().datetime({ offset: true }),
+}).strict();
+
+export const maintenanceBlockSchema = z.object({
+  id: idSchema,
+  roomId: idSchema,
+  reason: z.string(),
+  startsAt: z.string().datetime({ offset: true }),
+  endsAt: z.string().datetime({ offset: true }),
+  status: z.enum(['active', 'released']),
+  createdAt: z.string().datetime({ offset: true }),
+  releasedAt: z.string().datetime({ offset: true }).nullable(),
+}).strict();
+
+export const createMaintenanceBlockCommandSchema = z.object({
+  roomId: idSchema,
+  reason: z.string().trim().min(3).max(300),
+  startsAt: z.string().datetime({ offset: true }),
+  endsAt: z.string().datetime({ offset: true }),
+}).strict().refine((value) => value.endsAt > value.startsAt, { message: 'endsAt must be after startsAt', path: ['endsAt'] });
+
+export const roomStatusCommandSchema = z.object({ version: z.number().int().positive(), status: roomStatusSchema }).strict();
 
 export const createReservationCommandSchema = z.object({
   propertyId: idSchema,
@@ -167,3 +248,8 @@ export type HousekeepingTaskStatus = z.infer<typeof housekeepingTaskStatusSchema
 export type HousekeepingTask = z.infer<typeof housekeepingTaskSchema>;
 export type HousekeepingTaskDetail = z.infer<typeof housekeepingTaskDetailSchema>;
 export type HousekeepingChecklistItem = z.infer<typeof housekeepingChecklistItemSchema>;
+export type ReservationStatus = z.infer<typeof reservationStatusSchema>;
+export type RoomStatus = z.infer<typeof roomStatusSchema>;
+export type Guest = z.infer<typeof guestSchema>;
+export type Quote = z.infer<typeof quoteSchema>;
+export type MaintenanceBlock = z.infer<typeof maintenanceBlockSchema>;

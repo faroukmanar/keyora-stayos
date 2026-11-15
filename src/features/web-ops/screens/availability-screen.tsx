@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { ArrowUpRight, CalendarRange } from 'lucide-react-native';
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { useLiveRooms } from '@/features/web-ops/hooks/use-live-operations';
+import { useRooms as useLiveRooms } from '@/features/operations/hooks/use-live-data';
 import { AppHeader } from '@/shared/components/app-header';
 import { AppText } from '@/shared/components/app-text';
 import { Screen } from '@/shared/components/screen';

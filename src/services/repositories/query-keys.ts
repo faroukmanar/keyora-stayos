@@ -6,4 +6,5 @@ export const queryKeys = {
   reservations: (scope: TenantScope) => [...queryKeys.property(scope), 'reservations'] as const,
   guests: (scope: TenantScope) => [...queryKeys.property(scope), 'guests'] as const,
   housekeeping: (scope: TenantScope) => [...queryKeys.property(scope), 'housekeeping'] as const,
+  maintenance: (scope: TenantScope) => [...queryKeys.property(scope), 'maintenance'] as const,
 };

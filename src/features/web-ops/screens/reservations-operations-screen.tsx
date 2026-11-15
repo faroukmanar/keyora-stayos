@@ -3,7 +3,7 @@ import { Check, CheckSquare, ChevronRight, Search, Square, X } from 'lucide-reac
 import { type ComponentRef, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 import type { Reservation } from '../../../../packages/contracts/src';
-import { useLiveReservations, useLiveRooms } from '@/features/web-ops/hooks/use-live-operations';
+import { useReservations as useLiveReservations, useRooms as useLiveRooms } from '@/features/operations/hooks/use-live-data';
 import { AppHeader } from '@/shared/components/app-header';
 import { AppText } from '@/shared/components/app-text';
 import { Screen } from '@/shared/components/screen';

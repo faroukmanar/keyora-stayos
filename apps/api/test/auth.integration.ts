@@ -52,10 +52,28 @@ async function main() {
     const rotated = await app.inject({ method: 'POST', url: '/v1/auth/refresh', payload: { clientType: 'native', refreshToken: firstBody.refreshToken } });
     assert.equal(rotated.statusCode, 200, rotated.body);
     assert.notEqual(rotated.json().refreshToken, firstBody.refreshToken);
+    // Lost response: the client replays the token it still holds; inside the grace window it recovers.
+    const retried = await app.inject({ method: 'POST', url: '/v1/auth/refresh', payload: { clientType: 'native', refreshToken: firstBody.refreshToken } });
+    assert.equal(retried.statusCode, 200, retried.body);
+    assert.notEqual(retried.json().refreshToken, rotated.json().refreshToken);
+    const advanced = await app.inject({ method: 'POST', url: '/v1/auth/refresh', payload: { clientType: 'native', refreshToken: retried.json().refreshToken } });
+    assert.equal(advanced.statusCode, 200, advanced.body);
+    // Once the successor has itself rotated, replaying the old token is theft: the whole family dies.
     const reuse = await app.inject({ method: 'POST', url: '/v1/auth/refresh', payload: { clientType: 'native', refreshToken: firstBody.refreshToken } });
     assert.equal(reuse.statusCode, 401);
-    const familyRevoked = await app.inject({ method: 'POST', url: '/v1/auth/refresh', payload: { clientType: 'native', refreshToken: rotated.json().refreshToken } });
+    const familyRevoked = await app.inject({ method: 'POST', url: '/v1/auth/refresh', payload: { clientType: 'native', refreshToken: advanced.json().refreshToken } });
     assert.equal(familyRevoked.statusCode, 401, familyRevoked.body);
+
+    // Outside the grace window a replay is rejected even if the successor is unused.
+    const late = await app.inject({ method: 'POST', url: '/v1/auth/login', payload: { email: 'owner@demo.keyora.test', password: originalPassword, propertyId, clientType: 'native', deviceName: 'Grace window test' } });
+    assert.equal(late.statusCode, 200, late.body);
+    const lateRotated = await app.inject({ method: 'POST', url: '/v1/auth/refresh', payload: { clientType: 'native', refreshToken: late.json().refreshToken } });
+    assert.equal(lateRotated.statusCode, 200, lateRotated.body);
+    await pool.query("UPDATE auth_sessions SET revoked_at = now() - interval '1 minute' WHERE id = $1", [late.json().user.sessionId]);
+    const lateReplay = await app.inject({ method: 'POST', url: '/v1/auth/refresh', payload: { clientType: 'native', refreshToken: late.json().refreshToken } });
+    assert.equal(lateReplay.statusCode, 401, lateReplay.body);
+    const lateFamily = await app.inject({ method: 'POST', url: '/v1/auth/refresh', payload: { clientType: 'native', refreshToken: lateRotated.json().refreshToken } });
+    assert.equal(lateFamily.statusCode, 401, 'a late replay still revokes the family');
 
     const web = await app.inject({ method: 'POST', url: '/v1/auth/login', headers: { origin: config.corsOrigins[0], 'sec-fetch-site': 'same-origin' }, payload: { email: 'owner@demo.keyora.test', password: originalPassword, propertyId, clientType: 'web', deviceName: 'Browser test' } });
     assert.equal(web.statusCode, 200, web.body);
@@ -97,7 +115,7 @@ async function main() {
     const loggedOut = await app.inject({ method: 'POST', url: '/v1/auth/refresh', payload: { clientType: 'native', refreshToken: withMfa.json().refreshToken } });
     assert.equal(loggedOut.statusCode, 401);
 
-    console.log('Auth integration passed: RBAC, lockout, native/web sessions, rotation/reuse revocation, reset, MFA, and logout.');
+    console.log('Auth integration passed: RBAC, lockout, native/web sessions, rotation, lost-response retry grace, reuse revocation, reset, MFA, and logout.');
   } finally {
     await app.close();
     await pool.end();

@@ -33,6 +33,7 @@
     "housekeeping:test": "tsx apps/api/test/housekeeping.integration.ts",
     "realtime:test": "tsx apps/api/test/realtime.integration.ts",
     "bootstrap:test": "tsx apps/api/test/bootstrap.integration.ts",
+    "contract:test": "tsx apps/api/test/contract.integration.ts",
     "security:licenses": "node scripts/check-licenses.cjs",
     "notifications:worker": "tsx apps/api/src/notifications/worker.ts",
     "lint": "expo lint",

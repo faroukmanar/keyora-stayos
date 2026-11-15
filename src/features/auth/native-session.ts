@@ -30,4 +30,12 @@ export async function signInNative(input: { email: string; password: string; pro
   return toUser(parsed.user);
 }
 
-export async function signOutNative() { await clearNativeRefreshToken(); }
+/** Revokes the session family server-side before forgetting the token locally. */
+export async function signOutNative() {
+  const refreshToken = await loadNativeRefreshToken();
+  try {
+    if (refreshToken) await fetch(`${apiOrigin()}/v1/auth/logout`, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: JSON.stringify({ clientType: 'native', refreshToken }) });
+  } finally {
+    await clearNativeRefreshToken();
+  }
+}

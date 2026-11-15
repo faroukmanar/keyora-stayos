@@ -69,7 +69,7 @@ export class ReservationService {
       );
       if (!redeemed.rowCount) throw new DomainError(409, 'DISCOUNT_EXHAUSTED', 'The discount code reached its redemption limit.');
     }
-    await emitEvent(client, scope, { type: 'reservation.created', entityType: 'reservation', entityId: reservationId, payload: { roomId: input.roomId, checkIn: input.checkIn, checkOut: input.checkOut, status: 'confirmed' } });
+    await emitEvent(client, scope, { type: 'reservation.created', entityType: 'reservation', entityId: reservationId, payload: { actorId: actor.id, at: new Date().toISOString(), roomId: input.roomId, checkIn: input.checkIn, checkOut: input.checkOut, status: 'confirmed' } });
     await recordAudit(client, { scope, actor, category: 'reservation', action: 'reservation.created', entityType: 'reservation', entityId: reservationId, requestId, metadata: { roomId: input.roomId, nights: quote.breakdown.nights.length } });
     return this.get(client, scope, reservationId);
   }
@@ -85,7 +85,7 @@ export class ReservationService {
       [reservationId, scope.organizationId, scope.propertyId, input.checkIn, input.checkOut, input.adults, input.children, quote.totalMinor, quote.currency, JSON.stringify(quote.breakdown), input.quoteId, quote.ratePlanId, version],
     );
     if (!result.rowCount) throw staleVersion();
-    await emitEvent(client, scope, { type: 'reservation.changed', entityType: 'reservation', entityId: reservationId, payload: { checkIn: input.checkIn, checkOut: input.checkOut, status: current.status } });
+    await emitEvent(client, scope, { type: 'reservation.changed', entityType: 'reservation', entityId: reservationId, payload: { actorId: actor.id, at: new Date().toISOString(), checkIn: input.checkIn, checkOut: input.checkOut, status: current.status } });
     await recordAudit(client, { scope, actor, category: 'reservation', action: 'reservation.changed', entityType: 'reservation', entityId: reservationId, requestId });
     return this.get(client, scope, reservationId);
   }
@@ -98,7 +98,7 @@ export class ReservationService {
     if (!room.rowCount) throw new DomainError(422, 'ROOM_INVALID', 'The room is unavailable in this property.');
     const result = await client.query('UPDATE reservations SET room_id=$4, version=version+1, updated_at=now() WHERE id=$1 AND organization_id=$2 AND property_id=$3 AND version=$5 RETURNING id', [reservationId, scope.organizationId, scope.propertyId, roomId, version]);
     if (!result.rowCount) throw staleVersion();
-    await emitEvent(client, scope, { type: 'reservation.reassigned', entityType: 'reservation', entityId: reservationId, payload: { roomId, status: current.status } });
+    await emitEvent(client, scope, { type: 'reservation.reassigned', entityType: 'reservation', entityId: reservationId, payload: { actorId: actor.id, at: new Date().toISOString(), roomId, status: current.status } });
     await recordAudit(client, { scope, actor, category: 'reservation', action: 'reservation.reassigned', entityType: 'reservation', entityId: reservationId, requestId, metadata: { roomId } });
     return this.get(client, scope, reservationId);
   }
@@ -142,7 +142,7 @@ export class ReservationService {
       const maintenance = await client.query("SELECT 1 FROM maintenance_blocks WHERE room_id=$1 AND status='active' LIMIT 1", [roomId]);
       if (!active.rowCount && !maintenance.rowCount) await client.query("UPDATE rooms SET status='available', version=version+1, updated_at=now() WHERE id=$1", [roomId]);
     }
-    await emitEvent(client, scope, { type: `reservation.${target}`, entityType: 'reservation', entityId: reservationId, payload: { roomId, from, to: target } });
+    await emitEvent(client, scope, { type: `reservation.${target}`, entityType: 'reservation', entityId: reservationId, payload: { actorId: actor.id, at: new Date().toISOString(), roomId, from, to: target } });
     await recordAudit(client, { scope, actor, category: 'reservation', action: `reservation.${target}`, entityType: 'reservation', entityId: reservationId, requestId, metadata: { from, to: target } });
     return this.get(client, scope, reservationId);
   }
