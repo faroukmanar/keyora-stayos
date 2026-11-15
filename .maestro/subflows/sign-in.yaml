@@ -1,0 +1,22 @@
+appId: com.faroukmanar.keyora
+---
+# Requires env EMAIL and MAESTRO_PASSWORD (synthetic local credentials only).
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Work email"
+    timeout: 60000
+- tapOn: "Work email"
+- eraseText
+- inputText: ${EMAIL}
+- tapOn: "Password"
+- eraseText
+- inputText: ${MAESTRO_PASSWORD}
+- tapOn: "Property ID"
+- eraseText
+- inputText: "10000000-0000-4000-8000-000000000002"
+- hideKeyboard
+- tapOn: "Open operations desk"
+- extendedWaitUntil:
+    visible: "Operations at a glance"
+    timeout: 30000

@@ -1,0 +1,10 @@
+# Native end-to-end flows (issue #25). Run with `npm run native:e2e` or `npm run release:gate -- --native`
+# against a dev/preview build pointed at the local API (EXPO_PUBLIC_API_URL) with the synthetic seed.
+flows:
+  - "*.yaml"
+executionOrder:
+  continueOnFailure: false
+  flowsOrder:
+    - 01-sign-in
+    - 02-book-check-in-check-out
+    - 03-room-turn

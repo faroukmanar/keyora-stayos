@@ -1,0 +1,18 @@
+appId: com.faroukmanar.keyora
+name: Sign in restores a native session
+---
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: frontdesk@demo.keyora.test
+# Relaunching keeps the SecureStore refresh token and skips the sign-in screen.
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible: "Operations at a glance"
+    timeout: 30000
+- tapOn: "Settings and account"
+- tapOn: "Sign out"
+- extendedWaitUntil:
+    visible: "Work email"
+    timeout: 15000

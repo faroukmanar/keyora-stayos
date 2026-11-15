@@ -1,0 +1,16 @@
+#!/bin/sh
+# Release tags require passing local gate evidence for the tagged commit (issue #25).
+# Branch pushes are not blocked. Install with: npm run hooks:install
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case "$remote_ref" in
+    refs/tags/*)
+      [ "$local_sha" = "0000000000000000000000000000000000000000" ] && continue
+      commit=$(git rev-parse "$local_sha^{commit}") || exit 1
+      node scripts/verify-release-evidence.cjs "$commit" || {
+        echo "Refusing to push $remote_ref: run 'npm run release:gate' on a clean checkout of $commit first." >&2
+        exit 1
+      }
+      ;;
+  esac
+done
+exit 0
