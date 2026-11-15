@@ -24,21 +24,21 @@ Native development uses `npm run ios` or `npm run android`. The project targets 
 
 ## Product surface
 
-- Role-aware demo entry for owner, manager, front desk, and housekeeping staff
-- Live operations dashboard with occupancy, revenue, arrivals, and room-turn signals
-- Booking timeline and deep-linked reservation summaries
-- Searchable, filterable room inventory with nine original room photographs
-- Guest profiles with stay history and VIP state
-- Housekeeping board with blocked/rush/ready states and inventory synchronization
-- Room status updates reflected across the application state
+- Authenticated, role-aware workspaces for owner, manager, front desk, and housekeeping staff (native + web)
+- Live dashboard: occupancy, arrivals, departures, in-house stays, open room turns
+- Stay calendar and reservation detail with check-in, no-show, cancel, and check-out
+- Direct booking from a server-signed quote, for existing or new guests
+- Room inventory with live status, bulk updates (web), and maintenance blocks
+- Guest profiles with role-based contact masking
+- Housekeeping board with checklists, inspections, blockers, escalation, and realtime updates
 
 ## Architecture
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for boundaries, data flow, production integration seams, and release considerations.
 
-## Demo data
+## Local data
 
-The checked-in demo uses a fixed operating date (`2026-10-28`) so screenshots, tests, and portfolio review remain deterministic. The data and Zustand store are intentionally isolated behind `src/data` and `src/features/operations/store`; a production API adapter can replace them without changing screen components or domain calculations.
+The apps have no built-in demo data. Run the API against the local database (`npm run db:up`, `npm run db:migrate`, `npm run db:seed`, `KEYORA_MOCK_PASSWORD=... npm run db:seed-users`) to get a synthetic property with staff accounts for each role. Seeds refuse to run against non-local databases.
 
 ## Visual assets
 

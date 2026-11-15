@@ -7,11 +7,11 @@ KEYORA uses a feature-first React Native architecture with a small, framework-in
 ```text
 src/
   app/                 Expo Router route composition only
-  domain/              Models and pure business rules
-  data/                Deterministic demo fixtures and asset mapping
+  domain/              Pure business rules over the shared contract types
+  services/            HTTP client and API repositories (packages/contracts schemas)
   features/
     auth/              Session and role entry
-    operations/        Shared operational state and dashboard
+    operations/        Live-data hooks (TanStack Query) and dashboard
     reservations/      Booking timeline and reservation detail
     rooms/             Inventory cards, filtering, and room detail
     guests/            Guest relationship workspace
@@ -25,24 +25,20 @@ Routes import feature screens; feature screens do not own routing configuration.
 ## State and data flow
 
 ```text
-Demo fixtures / future API adapter
+Versioned API (/v1, OpenAPI + zod schemas in packages/contracts)
               ↓
-      Operations store
-        ↙           ↘
- domain selectors   feature screens
-        ↘           ↙
+   HttpClient → repositories (src/services)
+              ↓
+   TanStack Query hooks, keyed by organization + property
+        ↙                     ↘
+ domain rules            feature screens
+        ↘                     ↙
       shared UI components
 ```
 
-Zustand holds the local operational projection: rooms, reservations, and housekeeping tasks. Mutations are narrowly named (`setRoomStatus`, `setTaskStatus`) and update immutable collections. TanStack Query is already mounted at the application boundary for production server state; the next integration replaces fixture initialization with query-backed repositories while retaining Zustand only for transient UI/session state.
+All screens read and write through `src/features/operations/hooks/use-live-data.ts` (and the housekeeping hooks). There is no in-app demo data source; synthetic data lives only in the local database seed. Mutations invalidate the tenant's query namespace; the API stays authoritative for state machines, availability, and pricing (signed quotes). Zustand holds only the authenticated actor.
 
-## Production integration seams
-
-1. Add an authenticated HTTP client under `src/services/http` with access-token refresh and request correlation IDs.
-2. Implement room, reservation, guest, and housekeeping repositories that validate responses with Zod.
-3. Hydrate TanStack Query per property and use optimistic mutations with rollback for status changes.
-4. Persist the authenticated session in Expo SecureStore and enforce roles from server-issued claims.
-5. Subscribe to reservation and room-turn events through WebSocket or SSE, invalidating scoped query keys.
+Realtime: web subscribes to the tenant SSE stream (`/v1/properties/{id}/events`) and invalidates the property namespace; native polls every 15 s while a screen is mounted. Contract drift is caught by `npm run contract:test`, which parses every client-used endpoint with the shared schemas.
 6. Add Sentry/OpenTelemetry, privacy-safe analytics, remote configuration, and EAS release channels.
 
 The versioned client-independent contract and its ownership rules are documented in [docs/architecture/contracts.md](./docs/architecture/contracts.md). The OpenAPI source lives at `packages/contracts/openapi/v1.json`; shared runtime schemas and generated transport types live beside it under `packages/contracts/src`.
