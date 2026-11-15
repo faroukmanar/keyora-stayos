@@ -1,4 +1,4 @@
-import type { Reservation, ReservationStatus, Room } from '@/domain/models';
+import type { Money, Reservation, ReservationStatus, Room } from '../../packages/contracts/src';
 
 const DAY = 86_400_000;
 export const nightsBetween = (checkIn: string, checkOut: string) => {
@@ -10,21 +10,30 @@ export const nightsBetween = (checkIn: string, checkOut: string) => {
 export const rangesOverlap = (startA: string, endA: string, startB: string, endB: string) =>
   Date.parse(startA) < Date.parse(endB) && Date.parse(startB) < Date.parse(endA);
 
-export const isRoomAvailable = (roomId: string, checkIn: string, checkOut: string, reservations: Reservation[]) =>
-  !reservations.some((item) => item.roomId === roomId && item.status !== 'cancelled' && rangesOverlap(checkIn, checkOut, item.checkIn, item.checkOut));
+const holdsInventory = (status: ReservationStatus) => status === 'confirmed' || status === 'checked-in';
 
-export const reservationTotal = (room: Pick<Room, 'nightlyRate'>, checkIn: string, checkOut: string, taxRate = 0.1) => {
-  const subtotal = room.nightlyRate * nightsBetween(checkIn, checkOut);
-  return { subtotal, tax: Math.round(subtotal * taxRate), total: Math.round(subtotal * (1 + taxRate)) };
-};
+/** Client-side hint only; the API's exclusion constraint is authoritative. */
+export const isRoomAvailable = (roomId: string, checkIn: string, checkOut: string, reservations: Pick<Reservation, 'roomId' | 'status' | 'checkIn' | 'checkOut'>[]) =>
+  !reservations.some((item) => item.roomId === roomId && holdsInventory(item.status) && rangesOverlap(checkIn, checkOut, item.checkIn, item.checkOut));
 
-export const occupancyRate = (rooms: Room[]) => rooms.length ? Math.round((rooms.filter((room) => room.status === 'occupied').length / rooms.length) * 100) : 0;
+export const occupancyRate = (rooms: Pick<Room, 'status'>[]) => rooms.length ? Math.round((rooms.filter((room) => room.status === 'occupied').length / rooms.length) * 100) : 0;
 
+// Mirrors the server lifecycle (apps/api/src/domain/reservation-service.ts).
 const reservationTransitions: Record<ReservationStatus, ReservationStatus[]> = {
-  confirmed: ['checked-in', 'cancelled'],
+  confirmed: ['checked-in', 'cancelled', 'no-show'],
   'checked-in': ['checked-out'],
   'checked-out': [],
   cancelled: [],
+  'no-show': [],
 };
 
 export const canTransitionReservation = (from: ReservationStatus, to: ReservationStatus) => reservationTransitions[from].includes(to);
+
+export const formatMoney = (money: Money, locale = 'en') =>
+  new Intl.NumberFormat(locale, { style: 'currency', currency: money.currency, maximumFractionDigits: 0 }).format(money.amountMinor / 100);
+
+/** ISO date (YYYY-MM-DD) in the property's operating time zone. */
+export const propertyToday = (now = new Date(), timeZone = 'Africa/Casablanca') =>
+  new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+
+export const addDays = (isoDate: string, days: number) => new Date(Date.parse(`${isoDate}T00:00:00Z`) + days * DAY).toISOString().slice(0, 10);
