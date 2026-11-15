@@ -9,6 +9,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "web:e2e": "playwright test",
+    "web:export:e2e": "expo export -p web --output-dir dist-e2e",
     "api:dev": "tsx watch apps/api/src/server.ts",
     "api:start": "tsx apps/api/src/server.ts",
     "api:smoke": "node scripts/smoke-api.cjs",
