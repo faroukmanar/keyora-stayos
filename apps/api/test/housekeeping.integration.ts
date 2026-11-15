@@ -8,6 +8,7 @@ import { loadConfig } from '../src/config';
 import { migrate } from '../src/database/migrate';
 import { seed } from '../src/database/seed';
 import { seedAuthUsers } from '../src/database/seed-auth-users';
+import { housekeepingChecklistItemSchema, housekeepingTaskDetailSchema, housekeepingTaskSchema, pageSchema } from '../../../packages/contracts/src';
 
 const connectionString = process.env.MIGRATION_DATABASE_URL ?? 'postgresql://keyora_owner:keyora-owner-local-only@127.0.0.1:5432/keyora_test';
 const propertyId = '10000000-0000-4000-8000-000000000002';
@@ -50,7 +51,7 @@ async function main() {
 
     const create = await app.inject({ method: 'POST', url: url('/housekeeping/tasks'), headers: headers(owner), payload: { roomId: seedRoomId, priority: 'rush', dueAt: new Date(Date.now() + 3_600_000).toISOString() } });
     assert.equal(create.statusCode, 201, create.body);
-    const task = create.json();
+    const task = housekeepingTaskDetailSchema.parse(create.json());
     assert.equal(task.status, 'ready');
     assert.equal(task.priority, 'rush');
     assert.equal(task.inspectionRequired, true);
@@ -84,7 +85,7 @@ async function main() {
     for (const item of detail.json().checklistItems) {
       const toggled = await app.inject({ method: 'PATCH', url: taskUrl(task.id, `/checklist/${item.id}`), headers: headers(housekeeping), payload: { completed: true } });
       assert.equal(toggled.statusCode, 200, toggled.body);
-      assert.ok(toggled.json().completedAt);
+      assert.ok(housekeepingChecklistItemSchema.parse(toggled.json()).completedAt);
     }
     const readyForInspection = await app.inject({ method: 'GET', url: taskUrl(task.id), headers: { authorization: `Bearer ${housekeeping}` } });
     assert.equal(readyForInspection.json().checklist.completed, 5);
@@ -97,6 +98,7 @@ async function main() {
     assert.equal(deniedInspection.statusCode, 403);
     const passed = await app.inject({ method: 'POST', url: taskUrl(task.id, '/inspections'), headers: headers(manager), payload: { version: toInspection.json().version, result: 'passed', notes: 'Ready for arrival' } });
     assert.equal(passed.statusCode, 200, passed.body);
+    housekeepingTaskDetailSchema.parse(passed.json());
     assert.equal(passed.json().status, 'done');
     assert.equal(passed.json().inspections[0].result, 'passed');
     assert.ok(passed.json().completedAt);
@@ -140,6 +142,7 @@ async function main() {
     assert.equal(overdueList.json().data.some((row: { id: string }) => row.id === overdue.json().id), true);
     const listed = await app.inject({ method: 'GET', url: url('/housekeeping/tasks?priority=rush'), headers: { authorization: `Bearer ${housekeeping}` } });
     assert.equal(listed.statusCode, 200, listed.body);
+    pageSchema(housekeepingTaskSchema).parse(listed.json());
     assert.equal(listed.json().data[0].id, task.id, 'rush tasks sort first');
 
     const events = await pool.query("SELECT type, payload FROM domain_events WHERE entity_id=$1 ORDER BY sequence", [task.id]);

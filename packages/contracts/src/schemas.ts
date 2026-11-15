@@ -76,6 +76,72 @@ export const createReservationCommandSchema = z.object({
   path: ['checkOut'],
 });
 
+export const housekeepingTaskStatusSchema = z.enum(['ready', 'in-progress', 'blocked', 'inspection', 'done']);
+export const housekeepingPrioritySchema = z.enum(['normal', 'rush']);
+const timestampSchema = z.string().datetime({ offset: true });
+
+export const housekeepingTaskSchema = z.object({
+  id: idSchema,
+  roomId: idSchema,
+  roomName: z.string().nullable(),
+  reservationId: idSchema.nullable(),
+  assignee: z.object({ id: idSchema, displayName: z.string().nullable() }).strict().nullable(),
+  status: housekeepingTaskStatusSchema,
+  priority: housekeepingPrioritySchema,
+  dueAt: timestampSchema.nullable(),
+  overdue: z.boolean(),
+  inspectionRequired: z.boolean(),
+  blockedReason: z.string().nullable(),
+  blockedAt: timestampSchema.nullable(),
+  startedAt: timestampSchema.nullable(),
+  completedAt: timestampSchema.nullable(),
+  checklist: z.object({ total: z.number().int().nonnegative(), completed: z.number().int().nonnegative() }).strict(),
+  lastChange: z.object({ type: z.string(), actorId: idSchema.nullable(), actorName: z.string().nullable(), at: timestampSchema }).strict().nullable(),
+  version: z.number().int().positive(),
+  createdAt: timestampSchema,
+  updatedAt: timestampSchema,
+}).strict();
+
+export const housekeepingChecklistItemSchema = z.object({
+  id: idSchema,
+  label: z.string().min(1).max(200),
+  required: z.boolean(),
+  sortOrder: z.number().int().nonnegative(),
+  completedAt: timestampSchema.nullable(),
+  completedBy: idSchema.nullable(),
+}).strict();
+
+export const housekeepingInspectionSchema = z.object({
+  id: idSchema,
+  result: z.enum(['passed', 'failed']),
+  notes: z.string().nullable(),
+  inspectorUserId: idSchema.nullable(),
+  createdAt: timestampSchema,
+}).strict();
+
+export const housekeepingTaskDetailSchema = housekeepingTaskSchema.extend({
+  checklistItems: z.array(housekeepingChecklistItemSchema),
+  inspections: z.array(housekeepingInspectionSchema),
+  inspection: z.object({ id: idSchema, result: z.enum(['passed', 'failed']), createdAt: timestampSchema }).strict().optional(),
+}).strict();
+
+export const housekeepingTransitionCommandSchema = z.object({
+  version: z.number().int().positive(),
+  target: housekeepingTaskStatusSchema,
+  reason: z.string().trim().min(3).max(500).optional(),
+}).strict();
+
+export const housekeepingInspectionCommandSchema = z.object({
+  version: z.number().int().positive(),
+  result: z.enum(['passed', 'failed']),
+  notes: z.string().trim().max(2000).nullable().optional(),
+}).strict();
+
+export const housekeepingEscalationCommandSchema = z.object({
+  version: z.number().int().positive(),
+  reason: z.string().trim().min(3).max(300),
+}).strict();
+
 export const apiErrorSchema = z.object({
   error: z.object({
     code: z.string().regex(/^[A-Z0-9_]+$/),
@@ -97,3 +163,7 @@ export type Room = z.infer<typeof roomSchema>;
 export type Reservation = z.infer<typeof reservationSchema>;
 export type CreateReservationCommand = z.infer<typeof createReservationCommandSchema>;
 export type ApiError = z.infer<typeof apiErrorSchema>;
+export type HousekeepingTaskStatus = z.infer<typeof housekeepingTaskStatusSchema>;
+export type HousekeepingTask = z.infer<typeof housekeepingTaskSchema>;
+export type HousekeepingTaskDetail = z.infer<typeof housekeepingTaskDetailSchema>;
+export type HousekeepingChecklistItem = z.infer<typeof housekeepingChecklistItemSchema>;
